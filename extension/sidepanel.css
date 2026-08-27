@@ -1,0 +1,111 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #0f1115;
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  min-width: 320px;
+}
+
+.app {
+  padding: 20px;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 6px;
+  color: #8b93a7;
+  font-size: 12px;
+}
+
+.card {
+  padding: 16px;
+  margin-bottom: 14px;
+  background: #181b22;
+  border: 1px solid #292e38;
+  border-radius: 12px;
+}
+
+.creator {
+  margin-bottom: 6px;
+  color: #8b93a7;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.video-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.company {
+  padding: 14px 0;
+  border-bottom: 1px solid #292e38;
+}
+
+.company:first-child {
+  padding-top: 0;
+}
+
+.company:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.company-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.ticker {
+  color: #8b93a7;
+  font-size: 11px;
+}
+
+.sentiment {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 7px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.thesis {
+  margin: 10px 0 0;
+  color: #c5cad5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.placeholder {
+  color: #8b93a7;
+  font-size: 13px;
+}
+
+.hidden {
+  display: none;
+}

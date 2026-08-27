@@ -1,0 +1,796 @@
+{
+  "bgSHTyHHERc": {
+    "video": {
+      "id": "bgSHTyHHERc",
+      "title": "Opening Bell: Bitcoin, Dow Jones, Nike, Robinhood, Coinbase, Strategy, Circle, Gold, Barrick Mining",
+      "creator": "DER AKTIONÄR TV",
+      "url": "https://www.youtube.com/watch?v=bgSHTyHHERc&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi",
+      "analyzed_at": "2026-08-24T00:55:10.579Z"
+    },
+    "companies": [
+      {
+        "company": "Volkswagen",
+        "ticker": "VOW3",
+        "sentiment": "bull",
+        "confidence": 0.7,
+        "thesis": "Seeing a slight recovery or counter-movement after losing 25% in performance over the last 12 months.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "BMW",
+        "ticker": "BMW",
+        "sentiment": "bull",
+        "confidence": 0.7,
+        "thesis": "Showing a slight recovery today after a 35% performance loss over the last year; part of a broader European auto sector demand.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Continental",
+        "ticker": "CON",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Automotive suppliers are in demand alongside car manufacturers in the current market movement.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Bayer",
+        "ticker": "BAYN",
+        "sentiment": "bear",
+        "confidence": 0.9,
+        "thesis": "Top loser in the DAX as the entire pharmaceutical sector is being slowed down.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Fresenius Medical Care",
+        "ticker": "FME",
+        "sentiment": "bear",
+        "confidence": 0.9,
+        "thesis": "Stock is suffering because Fresenius has further reduced its stake in the dialysis company.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Rheinmetall",
+        "ticker": "RHM",
+        "sentiment": "bear",
+        "confidence": 0.8,
+        "thesis": "Part of the defense sector which is currently seeing negative momentum in the market.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Hensoldt",
+        "ticker": "HAG",
+        "sentiment": "bear",
+        "confidence": 0.8,
+        "thesis": "Among the largest losers in the MDAX following the general negative trend in the defense sector.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Thyssenkrupp",
+        "ticker": "TKA",
+        "sentiment": "bear",
+        "confidence": 0.8,
+        "thesis": "Its marine division (TKMS) is among the losers in the MDAX.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Salzgitter",
+        "ticker": "SZG",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Benefiting from potential Chinese government financial aid to stimulate the economy, leading to a 6% price increase.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Aurubis",
+        "ticker": "NDA",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Significant gains of 6% driven by reports of potential economic stimulus from the Chinese government.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Walmart",
+        "ticker": "WMT",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "Recent sharp sell-off (highest in 4.5 years) was unjustified by the financial results; J.P. Morgan rates it a buy.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Nike",
+        "ticker": "NKE",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Despite a multi-year low and lack of short-term catalysts, the brand value alone is seen as worth the current market cap ($57bn), implying long-term recovery potential.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Robinhood",
+        "ticker": "HOOD",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Profitability expected to increase due to Bitcoin's rally and the return of aggressive day-trading activity in both Bitcoin and Altcoins.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": "next quarterly figures"
+      },
+      {
+        "company": "Coinbase",
+        "ticker": "COIN",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "If the stock breaks the $175 resistance, it is expected to reach $200 quickly due to high momentum.",
+        "price_target": 200,
+        "currency": "USD",
+        "time_horizon": "short-term"
+      },
+      {
+        "company": "MicroStrategy",
+        "ticker": "MSTR",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Uniquely positioned to benefit from Bitcoin price increases due to its large BTC holdings; could trade higher even if BTC just stabilizes.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": "running year"
+      },
+      {
+        "company": "Circle",
+        "ticker": null,
+        "sentiment": "bull",
+        "confidence": 0.7,
+        "thesis": "Stock has strong momentum, having run up 30% and crossed the $80 mark; target is $100.",
+        "price_target": 100,
+        "currency": "USD",
+        "time_horizon": "short-term"
+      },
+      {
+        "company": "Barrick Gold",
+        "ticker": "GOLD",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Leading gold mining stock that could see a 'profit turbo' due to rising gold prices and high operational leverage.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Newmont",
+        "ticker": "NEM",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Beneficiary of the gold price rally and expected to follow the upward trend in the mining sector.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      }
+    ]
+  },
+  "IC2q3F2KxCI": {
+    "video": {
+      "id": "IC2q3F2KxCI",
+      "title": "Opening Bell: Bitcoin, Ethereum, S&P 500, Moderna, Alibaba, Walmart, Axon Enterprise, IBM, SpaceX",
+      "creator": "DER AKTIONÄR TV",
+      "url": "https://www.youtube.com/watch?v=IC2q3F2KxCI&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=2",
+      "analyzed_at": "2026-08-24T00:55:34.891Z"
+    },
+    "companies": [
+      {
+        "company": "Beiersdorf",
+        "ticker": "BEI",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Wird als einer der Gewinner im deutschen Leitindex genannt, defensive Werte sind aktuell gefragt.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Continental",
+        "ticker": "CON",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "JP Morgan Analysten erwarten ein weiterhin robustes Reifengeschäft; die Aktie zeigt eine positive 12-Monats-Performance von 20%.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Brenntag",
+        "ticker": "BNR",
+        "sentiment": "bear",
+        "confidence": 0.9,
+        "thesis": "Bank of America stuft die Aktie auf Underperform herab; nach Sondergewinnen durch den Ukraine-Konflikt wird eine Rückkehr zum 'Business as usual' erwartet.",
+        "price_target": 55,
+        "currency": "EUR",
+        "time_horizon": null
+      },
+      {
+        "company": "Sartorius",
+        "ticker": "SRT3",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "UBS zeigt sich sehr optimistisch und geht von deutlichen Wachstumsschüben aus.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Moderna",
+        "ticker": "MRNA",
+        "sentiment": "neutral",
+        "confidence": 0.85,
+        "thesis": "Nach einem massiven Kursanstieg (177%) durch Studiendaten zu Krebsimpfstoffen werden Teilgewinne mitgenommen. Analysten erhöhen Kursziele massiv, raten aber dazu, auf Rücksetzer zu warten.",
+        "price_target": 170,
+        "currency": "USD",
+        "time_horizon": null
+      },
+      {
+        "company": "MicroStrategy",
+        "ticker": "MSTR",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Profitiert massiv vom Anstieg des Bitcoin-Preises und gewinnt an Momentum.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Alibaba",
+        "ticker": "BABA",
+        "sentiment": "bear",
+        "confidence": 0.85,
+        "thesis": "Quartalszahlen enttäuschten beim Ergebnis; das Wachstum in den KI-Bereichen reicht den Investoren aktuell nicht aus.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Walmart",
+        "ticker": "WMT",
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Trotz schwächerem Ausblick wird die Aktie als Kaufchance gesehen, da das E-Commerce-Geschäft (+23%) und die Onlinewerbung (+38%) stark wachsen.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Axon Enterprise",
+        "ticker": "AXON",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "Marktführer bei nichttödlichen Waffen; starke Quartalszahlen und KI-Integration treiben den Kurs Richtung Jahreshoch.",
+        "price_target": 700,
+        "currency": "USD",
+        "time_horizon": null
+      },
+      {
+        "company": "IBM",
+        "ticker": "IBM",
+        "sentiment": "bull",
+        "confidence": 0.75,
+        "thesis": "Fortschritte in der Quantencomputer-Infrastruktur (1000 Cubits) könnten ab 2027 umsatzseitig relevant werden.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": "mid-term"
+      },
+      {
+        "company": "SpaceX",
+        "ticker": null,
+        "sentiment": "bull",
+        "confidence": 0.8,
+        "thesis": "Trotz kurzfristigem Druck durch das Ende der Lockup-Periode wird das Unternehmen als langfristiger Marktführer im Bereich Weltraumtechnologie und Satellitennetzwerke gesehen.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": "long-term"
+      }
+    ]
+  },
+  "m3NcIR5JApE": {
+    "video": {
+      "id": "m3NcIR5JApE",
+      "title": "Opening Bell: AMD, Broadcom, LAM Research, T-Mobile US, First Solar",
+      "creator": "DER AKTIONÄR TV",
+      "url": "https://www.youtube.com/watch?v=m3NcIR5JApE&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=32",
+      "analyzed_at": "2026-08-24T20:57:12.039Z"
+    },
+    "companies": [
+      {
+        "company": "AMD",
+        "ticker": "AMD",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "Upgrade von Goldman Sachs aufgrund von Potenzial im Server-Bereich (CPUs) und möglichem Überraschungspotenzial bei den Quartalszahlen.",
+        "price_target": "640",
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Broadcom",
+        "ticker": "AVGO",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "Verlängerung der Technologie-Partnerschaft mit Apple bis 2031 gibt der Aktie neuen Schwung; technischer Rebound von der 200-Tage-Linie.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": "2031"
+      },
+      {
+        "company": "Lam Research",
+        "ticker": "LRCX",
+        "sentiment": "bull",
+        "confidence": 0.85,
+        "thesis": "Positive Einschätzungen von Morgan Stanley und anderen Analysten nach jüngsten Kursrücksetzern; Profiteur des starken Sektors für Speichermaterialien und -maschinen.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "T-Mobile US",
+        "ticker": "TMUS",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "Upgrade auf 'Buy' durch die Bank of America; Aktie nach 20 % Kursverlust zu günstig; starkes operatives Geschäft mit Netto-Kundenwachstum trotz gesättigtem Markt.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "First Solar",
+        "ticker": "FSLR",
+        "sentiment": "bull",
+        "confidence": 0.85,
+        "thesis": "Positive Analystenkommentare; führender Solarmodul-Produzent in den USA; Erholungspotenzial, sofern die 200-Tage-Linie verteidigt wird.",
+        "price_target": "270-300",
+        "currency": "USD",
+        "time_horizon": null
+      }
+    ]
+  },
+  "VuofyRxOHV4": {
+    "video": {
+      "id": "VuofyRxOHV4",
+      "title": "DER AKTIONÄR TV",
+      "creator": null,
+      "url": "https://www.youtube.com/watch?v=VuofyRxOHV4",
+      "analyzed_at": "2026-08-25T15:30:38.163Z"
+    },
+    "companies": [
+      {
+        "company": "Bitcoin",
+        "ticker": "BTC",
+        "sentiment": "bull",
+        "confidence": 0.9,
+        "thesis": "Die bullische Phase gilt als bestätigt nach einem Anstieg über die 80.000 USD Marke. Ein nachhaltiger Durchbruch über 81.000 bis 82.000 USD ist erforderlich, um weitere Widerstände anzuvisieren.",
+        "price_target": "82000",
+        "currency": "USD",
+        "time_horizon": null
+      },
+      {
+        "company": "Ethereum",
+        "ticker": "ETH",
+        "sentiment": "bull",
+        "confidence": 0.85,
+        "thesis": "Starker Ausbruch von rund 40 %; die Marke von 2.400 USD dient nun als wichtige Unterstützung, die halten sollte.",
+        "price_target": null,
+        "currency": "USD",
+        "time_horizon": null
+      },
+      {
+        "company": "XRP",
+        "ticker": "XRP",
+        "sentiment": "bull",
+        "confidence": 0.85,
+        "thesis": "Stärkste Performance unter den großen Coins mit fast 50 % Anstieg; Ziel ist es nun, die Marken von 0,50 und 0,60 USD hinter sich zu lassen.",
+        "price_target": "0.60",
+        "currency": "USD",
+        "time_horizon": null
+      },
+      {
+        "company": "Nvidia",
+        "ticker": "NVDA",
+        "sentiment": "neutral",
+        "confidence": 0.7,
+        "thesis": "Anstehende Quartalszahlen am Mittwoch sind kritisch; Verfehlen der hohen Erwartungen könnte ein Tech-Beben auslösen, da die Risikoaffinität im Sektor fragil ist.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": "short-term"
+      },
+      {
+        "company": "Stellar",
+        "ticker": "XLM",
+        "sentiment": "bull",
+        "confidence": 0.6,
+        "thesis": "Wurde von Oliver Michel am 10.07. als Zukauf getätigt.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Kanton",
+        "ticker": null,
+        "sentiment": "bull",
+        "confidence": 0.6,
+        "thesis": "Wurde von Oliver Michel am 10.07. als Zukauf getätigt.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      },
+      {
+        "company": "Hype",
+        "ticker": null,
+        "sentiment": "bull",
+        "confidence": 0.6,
+        "thesis": "Wurde von Oliver Michel am 20.08. als Zukauf getätigt.",
+        "price_target": null,
+        "currency": null,
+        "time_horizon": null
+      }
+    ]
+  },
+  "HEEO005FvLE": {
+    "analysis_version": 3,
+    "video": {
+      "id": "HEEO005FvLE",
+      "title": "Opening Bell",
+      "creator": "DER AKTION�R TV",
+      "url": "https://www.youtube.com/watch?v=HEEO005FvLE",
+      "analyzed_at": "2026-08-26T07:38:12.899Z"
+    },
+    "companies": [
+      {
+        "company": "Deutz",
+        "ticker": "DEZ",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Mehrere Analystenhäuser haben die Kursziele für den Motorenhersteller angehoben, der unter anderem im Rüstungsgeschäft tätig ist.",
+        "mentioned_move_pct": 10,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": "Deutz heute ganz vorne mit über 10 % zwischenzeitlich. Mehrer Analystenhäuser haben die Kursziele angehoben, darunter auch Kepler Chefrö für den Motorenhersteller, der unter anderem ja auch im Rüstungsgeschäft tätig ist."
+      },
+      {
+        "company": "Bitcoin",
+        "ticker": "BTC",
+        "asset_type": "crypto",
+        "sentiment": "bull",
+        "thesis": "Die aktuelle Lage beim Bitcoin wird als positiv bewertet, während der Kurs um die 80.000 US-Dollar Marke pendelt.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 80000,
+            "currency": "USD",
+            "context": "Marke, um die der Kurs pendelt"
+          }
+        ],
+        "evidence": "Ganz schneller Blick noch auf den Bitcoin. Der pendelt gerade rund um die Marke von 80.000 US-Dollar. ... versüßt die aktuelle doch schöne Lage beim Bitcoin."
+      },
+      {
+        "company": "Gold",
+        "ticker": null,
+        "asset_type": "commodity",
+        "sentiment": "bull",
+        "thesis": "Gold befindet sich in einer dynamischen Erholungs- und Aufwärtsbewegung mit einem Anstieg von 15% innerhalb kurzer Zeit.",
+        "mentioned_move_pct": 15,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 4000,
+            "currency": null,
+            "context": "Startpunkt der Aufwärtsbewegung"
+          },
+          {
+            "type": "reference",
+            "value": 4634,
+            "currency": null,
+            "context": "Aktuelles Niveau der Aufwärtsbewegung"
+          }
+        ],
+        "evidence": "Gold, denn die sind schön in der Aufwärtsbewegung von 4000 hochgelaufen auf mittlerweile 4634. Also, das ist ein schöner kleiner Anstieg von 15%, den wir hier innerhalb ganz ganz kurzer Zeit gemacht haben."
+      },
+      {
+        "company": "Barrick Gold",
+        "ticker": "GOLD",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Die Aktie zeigt sich deutlich stärker als der Goldpreis; die technische Situation mit der 200-Tagelinie wird positiv bewertet.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "support",
+            "value": 200,
+            "currency": null,
+            "context": "200 Tagelinie"
+          }
+        ],
+        "evidence": "Barrick und die Aktie deutlich stärker als der gesamt als jetzt der Goldpreis zuletzt gestiegen ... Sieht aber gut aus. 200 Tagelinie jetzt knapp unter einer runden Marke."
+      },
+      {
+        "company": "Airbnb",
+        "ticker": "ABNB",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Gute Quartalszahlen und ein positiver Ausblick treiben die Aktie zu neuen Rekordhochs.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "breakout",
+            "value": 0,
+            "currency": null,
+            "context": "neues Rekordhoch"
+          }
+        ],
+        "evidence": "Airbnb zuletzt gute Zahlen, guter Ausblick, läuft halt einfach und die Aktie dann mehr oder weniger ... neues Rekord hoch etc. PB und das hat zuletzt ganz hervorragend funktioniert"
+      },
+      {
+        "company": "Coca-Cola",
+        "ticker": "KO",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Trotz möglicher Risiken durch eine Zuckersteuer bietet die Aktie solide Renditen und Dividenden.",
+        "mentioned_move_pct": 12,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": "Coke. Ja, ich meine, die hat dann mal trotzdem eben 11% 12 % gemacht und das ist gar nicht schlecht ... zu Coke gehört ja in der Regel auch noch eine Dividende dazu"
+      },
+      {
+        "company": "Target Corp",
+        "ticker": "TGT",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Klassische Turnaround-Story mit steigenden Same-Store Sales (3,8%) und wachsender Kundenfrequenz.",
+        "mentioned_move_pct": 20,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "resistance",
+            "value": 165,
+            "currency": null,
+            "context": "Erstes Zielareal des Turnarounds"
+          },
+          {
+            "type": "resistance",
+            "value": 170,
+            "currency": null,
+            "context": "Zweites Zielareal des Turnarounds"
+          }
+        ],
+        "evidence": "Target ... deutliche Anzeichen für eine einen Turnaround. Die die Sameestore Sales, die sind zuletzt doch etwas kräftiger gestiegen. 3,8%. ... Also jetzt erstmal ganz locker bis in den Bereich 165 170"
+      },
+      {
+        "company": "Amgen",
+        "ticker": "AMGN",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Langfristiger Aufwärtstrend mit zweistelligen Renditen; Wachstum wird durch Kernmarken und neue Wirkstoffe getrieben.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 400,
+            "currency": "USD",
+            "context": "Historisches Kursniveau"
+          },
+          {
+            "type": "support",
+            "value": 330,
+            "currency": null,
+            "context": "Unterer Testbereich"
+          },
+          {
+            "type": "support",
+            "value": 340,
+            "currency": null,
+            "context": "Unterer Testbereich"
+          },
+          {
+            "type": "support",
+            "value": 200,
+            "currency": null,
+            "context": "200 Tage Linie"
+          }
+        ],
+        "evidence": "Engine, die haben ein langfristigen Aufwärtstrend. ... Kernmarken des Unternehmens, die funktionieren momentan noch und hinzu kommen dann neue Medikamente und Wirkstoffe das Wachstum weiter antreiben."
+      },
+      {
+        "company": "Moderna",
+        "ticker": "MRNA",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Die Aktie sucht nach einer Bodenbildung; nach Teilverkäufen wird die Aktie für einen Wiedereinstieg beobachtet.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": "Moderner ... werden wir jetzt übrigens wieder aktiv werden. ... lohnt sich auf jeden Fall die Aktie hier natürlich weiterhin im Fokus zu haben oder auf der Watchlist zu haben."
+      },
+      {
+        "company": "Sea Limited",
+        "ticker": "SE",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Starke Q2-Zahlen in den Bereichen E-Commerce (Shopee), Gaming und Financials bieten eine attraktive Turnaround-Chance.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "buy",
+        "levels": [],
+        "evidence": "Sea Limited zuletzt die Aktie ordentlich gelaufen. Das waren auch die Q2 Zahlen, die zeigen, es läuft wirklich wieder gut ... bietet die Chance meiner Meinung nach da wirklich in in der super Turnaround Geschichte reinzukommen. ... kann man zugreifen."
+      }
+    ]
+  },
+  "4YWd0PujGaY": {
+    "analysis_version": 3,
+    "video": {
+      "id": "4YWd0PujGaY",
+      "title": "Opening Bell: Bitcoin, Dow Jones, Nike, Robinhood, Coinbase, Strategy, Circle, Gold, Barrick Mining",
+      "creator": "DER AKTIONÄR TV",
+      "url": "https://www.youtube.com/watch?v=4YWd0PujGaY&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=2",
+      "analyzed_at": "2026-08-26T08:12:34.671Z"
+    },
+    "companies": [
+      {
+        "company": "Gold",
+        "ticker": null,
+        "asset_type": "commodity",
+        "sentiment": "bull",
+        "thesis": "Gold entwickelt sich charttechnisch attraktiv, bewegt sich weg von der 200-Tage-Linie und profitiert von schwächerem Dollar sowie Geopolitik.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": "Der Goldpreis, er läuft weiter. Sie sehen es. Weitere 50$ für die Feinze. 4654 sind wir momentan. Geht so ein bisschen von der 200 Tage Linie weg. Sieht sehr schön aus. Chartechnisch ist das wirklich lecker."
+      },
+      {
+        "company": "Bitcoin",
+        "ticker": null,
+        "asset_type": "crypto",
+        "sentiment": "bull",
+        "thesis": "Bitcoin zeigt Dynamik nach oben und bricht durch frühere Konsolidierungen; nach der 80.000er-Marke gibt es wenig Widerstand bis in den Bereich 90.000.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "resistance",
+            "value": 80000,
+            "currency": "USD",
+            "context": "Runde Marke, die geknackt werden könnte"
+          },
+          {
+            "type": "resistance",
+            "value": 90000,
+            "currency": null,
+            "context": "Bereich, in dem es ein bisschen zappeln könnte"
+          }
+        ],
+        "evidence": "knapp oberhalb der 80.000$ 1000$ Marke ist dann abgeprallt unterhalb der der 200 Tagelinie, aber jetzt wurde der durchbrochen und dann könnte damit ein bisschen mit ein bisschen mehr Druck und Werf ausbrechen [...] Das ist sicherlich so dieser Bereich 90.000, könnte ein bisschen zappeln, aber prinzipiell sieht das schon ganz günstig aus."
+      },
+      {
+        "company": "Starbucks",
+        "ticker": null,
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Steigende Kaffeepreise belasten die Margen, aber ein Ausbruch über die Marke von 110 Dollar könnte ein Long-Signal darstellen.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [
+          {
+            "type": "breakout",
+            "value": 110,
+            "currency": "USD",
+            "context": "Über dieser Marke könnte man für Long argumentieren"
+          }
+        ],
+        "evidence": "Schauen Sie da ruhig auf die 110. bei 110. Allerdings würde ich auch sagen, also wenn die Aktie drüber geht über die 110$, würde ich durchaus mal dafür argumentieren, äh vielleicht auch mit dem Derivat da long zu gehen"
+      },
+      {
+        "company": "Walmart",
+        "ticker": null,
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Die Quartalszahlen waren stark, der Kursrückgang aufgrund des verhaltenen Ausblicks stellt eine langfristige Kaufgelegenheit dar.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": "langfristig",
+        "action": "buy",
+        "levels": [],
+        "evidence": "hat halt eben in dem Fall die Anleger verstreckt und dazu geführt, dass die Aktie doch deutlicher unter Druck gekommen ist. für mich eine Kaufchance langfristig gesehen. Ähm muss man halt meiner Meinung auch einfach zugreifen."
+      },
+      {
+        "company": "Alibaba",
+        "ticker": null,
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Die Kapitalerhöhung deutlich unter dem aktuellen Kurs belastet das ohnehin schwache Bild bei unzureichendem Wachstum.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": "Alibaba ja, die dürfte schwächer in den Tag äh reinstarten, weshalb Kapitalerhöhung und das ganze ähm doch deutlich unter dem aktuellen Kurs [...] Passt momentan gut in das eher schwache Bild. Die sollten schneller wachsen."
+      },
+      {
+        "company": "XPeng",
+        "ticker": null,
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Trotz höherer Auslieferungen und Umsätze belasten weiterhin hohe Verluste den Kurs.",
+        "mentioned_move_pct": null,
+        "price_target": null,
+        "price_target_currency": null,
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": "Schaupeng auch unter Druck. [...] Das Problem ist nur, dass sie weiterhin hohe Verluste einfahren und das ist gerade das, was ihr Anleger jetzt im aktuellen Umfeld mit möglicherweise steigenden Zinsen auch gar nicht so sehr wollen"
+      }
+    ]
+  }
+}

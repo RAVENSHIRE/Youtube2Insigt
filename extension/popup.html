@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT Investor Research</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      width: 360px;
+      background: #0f1115;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    .header {
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: #8b93a7;
+      font-size: 12px;
+    }
+
+    .card {
+      background: #181b22;
+      border: 1px solid #292e38;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 15px;
+    }
+
+    .company {
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #292e38;
+    }
+
+    .company:last-child {
+      padding-bottom: 0;
+      margin-bottom: 0;
+      border-bottom: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+    }
+
+    p {
+      margin: 6px 0;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #c5cad5;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    button:disabled {
+      background: #374151;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 12px;
+      color: #8b93a7;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">YT Investor Research</div>
+      <div class="subtitle">
+        YouTube Investment Research Engine
+      </div>
+    </div>
+
+    <div id="results" class="card hidden"></div>
+
+    <button id="extractButton">
+      Extract Video
+    </button>
+
+    <div id="status">
+      Open a YouTube video and click Extract Video.
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
