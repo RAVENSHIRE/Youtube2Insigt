@@ -14,10 +14,22 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const GEMINI_FALLBACK_MODEL =
   process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash";
 
-const ANALYSIS_VERSION = 4;
-const CHUNK_SIZE = 8000;
-const CHUNK_OVERLAP = 800;
+const ANALYSIS_VERSION = 5;
+const CHUNK_SIZE = Math.max(
+  8000,
+  Number(process.env.TRANSCRIPT_CHUNK_SIZE) || 24000
+);
+const CHUNK_OVERLAP = Math.min(
+  Math.max(0, Number(process.env.TRANSCRIPT_CHUNK_OVERLAP) || 1200),
+  Math.floor(CHUNK_SIZE / 2)
+);
 const MAX_GENERATION_ATTEMPTS = 2;
+const MAX_RETRY_DELAY_MS = 60_000;
+const MIN_QUOTA_COOLDOWN_MS = 30_000;
+const DAILY_QUOTA_COOLDOWN_MS = Math.max(
+  MIN_QUOTA_COOLDOWN_MS,
+  Number(process.env.GEMINI_QUOTA_COOLDOWN_MS) || 5 * 60_000
+);
 
 const DATA_DIR = path.join(__dirname, "data");
 const VIDEO_FILE = path.join(DATA_DIR, "videos.json");
@@ -53,6 +65,7 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const ANALYSIS_SCHEMA = {
   type: "object",
   properties: {
+    summary: { type: "string" },
     companies: {
       type: "array",
       items: {
@@ -122,7 +135,7 @@ const ANALYSIS_SCHEMA = {
       }
     }
   },
-  required: ["companies"]
+  required: ["summary", "companies"]
 };
 
 const SUMMARY_SCHEMA = {
@@ -140,6 +153,7 @@ if (!process.env.GEMINI_API_KEY) {
 const app = express();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const analysisLocks = new Map();
+const analysisCooldowns = new Map();
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
@@ -231,9 +245,143 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function parseJson(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function parseDurationMs(value) {
+  const match = String(value || "")
+    .trim()
+    .match(/^([0-9]+(?:\.[0-9]+)?)s$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const milliseconds = Number(match[1]) * 1000;
+  return Number.isFinite(milliseconds) ? Math.ceil(milliseconds) : null;
+}
+
+function getGeminiErrorInfo(error) {
+  const parsedMessage = parseJson(error?.message);
+  const payload = error?.error || parsedMessage?.error || parsedMessage || {};
+  const status = Number(error?.status || error?.code || payload.code) || null;
+  const details = Array.isArray(error?.details)
+    ? error.details
+    : Array.isArray(payload.details)
+      ? payload.details
+      : [];
+  const violations = details.flatMap(detail =>
+    Array.isArray(detail?.violations) ? detail.violations : []
+  );
+  const isDailyQuota =
+    status === 429 &&
+    violations.some(violation =>
+      /per.?day/i.test(
+        `${violation?.quotaId || ""} ${violation?.quotaMetric || ""}`
+      )
+    );
+  const retryInfo = details.find(detail => detail?.retryDelay);
+  const retryMatch = String(payload.message || error?.message || "").match(
+    /retry in ([0-9]+(?:\.[0-9]+)?)s/i
+  );
+  const retryAfterMs =
+    parseDurationMs(retryInfo?.retryDelay) ??
+    (retryMatch ? Math.ceil(Number(retryMatch[1]) * 1000) : null);
+
+  return {
+    status,
+    isDailyQuota,
+    retryAfterMs
+  };
+}
+
+function normalizeGeminiError(error, model) {
+  const info = getGeminiErrorInfo(error);
+
+  if (info.status !== 429) {
+    error.geminiInfo = info;
+    return error;
+  }
+
+  const quotaError = new Error(
+    info.isDailyQuota
+      ? `Gemini-Tageskontingent für ${model} ausgeschöpft.`
+      : `Gemini-Kontingent für ${model} vorübergehend ausgeschöpft.`,
+    { cause: error }
+  );
+
+  quotaError.name = "GeminiQuotaError";
+  quotaError.status = 429;
+  quotaError.code = "GEMINI_QUOTA_EXCEEDED";
+  quotaError.model = model;
+  quotaError.isDailyQuota = info.isDailyQuota;
+  quotaError.retryAfterMs = info.isDailyQuota ? null : info.retryAfterMs;
+
+  return quotaError;
+}
+
+function getErrorStatus(error) {
+  return Number(error?.status || error?.geminiInfo?.status) || 500;
+}
+
 function isRetryable(error) {
-  const status = error?.status || error?.code;
+  const status = getErrorStatus(error);
   return RETRYABLE_STATUSES.has(status) || error instanceof SyntaxError;
+}
+
+function getRetryDelayMs(error, attempt) {
+  const retryAfterMs = error?.retryAfterMs ?? error?.geminiInfo?.retryAfterMs;
+
+  if (Number.isFinite(retryAfterMs)) {
+    return retryAfterMs;
+  }
+
+  return attempt * 2000;
+}
+
+function rememberAnalysisCooldown(videoId, error) {
+  const durationMs = error.isDailyQuota
+    ? DAILY_QUOTA_COOLDOWN_MS
+    : Math.max(error.retryAfterMs || 0, MIN_QUOTA_COOLDOWN_MS);
+
+  analysisCooldowns.set(videoId, {
+    expiresAt: Date.now() + durationMs,
+    isDailyQuota: Boolean(error.isDailyQuota),
+    message: error.message
+  });
+}
+
+function getAnalysisCooldownError(videoId) {
+  const cooldown = analysisCooldowns.get(videoId);
+
+  if (!cooldown) {
+    return null;
+  }
+
+  const retryAfterMs = cooldown.expiresAt - Date.now();
+
+  if (retryAfterMs <= 0) {
+    analysisCooldowns.delete(videoId);
+    return null;
+  }
+
+  const error = new Error(cooldown.message);
+  error.name = "GeminiQuotaError";
+  error.status = 429;
+  error.code = "GEMINI_QUOTA_COOLDOWN";
+  error.isDailyQuota = cooldown.isDailyQuota;
+  error.retryAfterMs = retryAfterMs;
+
+  return error;
 }
 
 async function generateStructured({ prompt, schema, maxOutputTokens }) {
@@ -277,16 +425,34 @@ async function generateStructured({ prompt, schema, maxOutputTokens }) {
           data: JSON.parse(text),
           model
         };
-      } catch (error) {
+      } catch (rawError) {
+        const error = normalizeGeminiError(rawError, model);
         lastError = error;
         console.error(`Gemini Fehler (${model}):`, error.message);
+
+        if (error.isDailyQuota) {
+          console.warn(
+            `Kein Retry für ausgeschöpftes Tageskontingent (${model}).`
+          );
+          break;
+        }
 
         if (error.code === "MAX_TOKENS" || !isRetryable(error)) {
           break;
         }
 
         if (attempt < MAX_GENERATION_ATTEMPTS) {
-          await wait(attempt * 2000);
+          const retryDelayMs = getRetryDelayMs(error, attempt);
+
+          if (retryDelayMs > MAX_RETRY_DELAY_MS) {
+            console.warn(
+              `Retry-Delay von ${retryDelayMs} ms überschreitet das Limit.`
+            );
+            break;
+          }
+
+          console.log(`Gemini Retry in ${retryDelayMs} ms`);
+          await wait(retryDelayMs);
         }
       }
     }
@@ -646,6 +812,10 @@ maximal 3 kurze Transcript-Ausschnitte pro Asset.
 
 12. Keine aktuellen oder historischen Marktpreise aus externem Wissen ergänzen.
 
+13. summary:
+Fasse den Transcript-Ausschnitt in maximal 3 kurzen Sätzen zusammen.
+Fokus auf Marktthese, Investment-Themen, Chancen und Risiken.
+
 Antworte ausschließlich gemäß JSON-Schema.
 `;
 }
@@ -670,6 +840,7 @@ async function extractChunk({
   });
 
   return {
+    summary: cleanString(response.data?.summary),
     companies: Array.isArray(response.data?.companies)
       ? response.data.companies
       : [],
@@ -712,82 +883,109 @@ ${transcript}
   };
 }
 
-async function analyzeVideo({ videoId, title, creator, url }) {
-  return withAnalysisLock(videoId, async () => {
-    // Existing videos are an immutable cache and are never analyzed automatically.
-    const videos = loadVideos();
+async function analyzeVideo(details) {
+  const { videoId } = details;
+  const cooldownError = getAnalysisCooldownError(videoId);
 
-    if (hasVideo(videos, videoId)) {
-      console.log(`CACHE HIT: ${videoId}`);
-      return { cached: true, videoId };
+  if (cooldownError) {
+    throw cooldownError;
+  }
+
+  try {
+    return await withAnalysisLock(videoId, () => performAnalysis(details));
+  } catch (error) {
+    if (getErrorStatus(error) === 429) {
+      rememberAnalysisCooldown(videoId, error);
     }
 
-    console.log(`CACHE MISS: ${videoId}`);
+    throw error;
+  }
+}
 
-    const transcript = await getTranscript(videoId);
-    const chunks = chunkTranscript(transcript);
+async function performAnalysis({ videoId, title, creator, url }) {
+  // Existing videos are an immutable cache and are never analyzed automatically.
+  const videos = loadVideos();
 
-    console.log(
-      `Transcript: ${transcript.length} Zeichen / ${chunks.length} Chunks`
-    );
+  if (hasVideo(videos, videoId)) {
+    console.log(`CACHE HIT: ${videoId}`);
+    return { cached: true, videoId };
+  }
 
-    const extracted = [];
-    const modelsUsed = new Set();
+  console.log(`CACHE MISS: ${videoId}`);
 
-    for (let index = 0; index < chunks.length; index++) {
-      console.log(`Chunk ${index + 1}/${chunks.length}`);
+  const transcript = await getTranscript(videoId);
+  const chunks = chunkTranscript(transcript);
 
-      const result = await extractChunk({
-        transcript: chunks[index],
-        title,
-        creator,
-        chunkIndex: index,
-        chunkCount: chunks.length
-      });
+  console.log(
+    `Transcript: ${transcript.length} Zeichen / ${chunks.length} Chunks`
+  );
 
-      extracted.push(...result.companies);
-      modelsUsed.add(result.model);
+  const extracted = [];
+  let embeddedSummary = null;
+  const modelsUsed = new Set();
+
+  for (let index = 0; index < chunks.length; index++) {
+    console.log(`Chunk ${index + 1}/${chunks.length}`);
+
+    const result = await extractChunk({
+      transcript: chunks[index],
+      title,
+      creator,
+      chunkIndex: index,
+      chunkCount: chunks.length
+    });
+
+    extracted.push(...result.companies);
+    modelsUsed.add(result.model);
+
+    if (chunks.length === 1 && result.summary) {
+      embeddedSummary = {
+        summary: result.summary,
+        model: result.model
+      };
     }
+  }
 
-    const companies = mergeCompanies(extracted);
-    const summaryResult = await summarizeVideo({
+  const companies = mergeCompanies(extracted);
+  const summaryResult =
+    embeddedSummary ||
+    (await summarizeVideo({
       transcript,
       title,
       creator
-    });
+    }));
 
-    modelsUsed.add(summaryResult.model);
+  modelsUsed.add(summaryResult.model);
 
-    const result = {
-      analysis_version: ANALYSIS_VERSION,
-      analysis_models: [...modelsUsed],
-      video: {
-        id: videoId,
-        title: cleanString(title),
-        creator: cleanString(creator),
-        url:
-          cleanString(url) ||
-          `https://www.youtube.com/watch?v=${videoId}`,
-        analyzed_at: new Date().toISOString()
-      },
-      summary: summaryResult.summary,
-      companies
-    };
+  const result = {
+    analysis_version: ANALYSIS_VERSION,
+    analysis_models: [...modelsUsed],
+    video: {
+      id: videoId,
+      title: cleanString(title),
+      creator: cleanString(creator),
+      url:
+        cleanString(url) ||
+        `https://www.youtube.com/watch?v=${videoId}`,
+      analyzed_at: new Date().toISOString()
+    },
+    summary: summaryResult.summary,
+    companies
+  };
 
-    // Recheck immediately before writing so an existing result is never replaced.
-    const latestVideos = loadVideos();
+  // Recheck immediately before writing so an existing result is never replaced.
+  const latestVideos = loadVideos();
 
-    if (hasVideo(latestVideos, videoId)) {
-      console.log(`CACHE HIT BEFORE SAVE: ${videoId}`);
-      return { cached: true, videoId };
-    }
+  if (hasVideo(latestVideos, videoId)) {
+    console.log(`CACHE HIT BEFORE SAVE: ${videoId}`);
+    return { cached: true, videoId };
+  }
 
-    latestVideos[videoId] = result;
-    saveVideos(latestVideos);
+  latestVideos[videoId] = result;
+  saveVideos(latestVideos);
 
-    console.log(`CACHE SAVED: ${videoId}`);
-    return { cached: false, videoId };
-  });
+  console.log(`CACHE SAVED: ${videoId}`);
+  return { cached: false, videoId };
 }
 
 function buildCompanyIndex(videos) {
@@ -870,6 +1068,30 @@ app.post("/analyze", async (req, res) => {
 
     return res.json(result);
   } catch (error) {
+    if (getErrorStatus(error) === 429) {
+      const retryAfterSeconds = Number.isFinite(error.retryAfterMs)
+        ? Math.max(1, Math.ceil(error.retryAfterMs / 1000))
+        : null;
+
+      console.warn("ANALYZE QUOTA:", {
+        message: error.message,
+        code: error.code,
+        dailyQuota: Boolean(error.isDailyQuota),
+        retryAfterSeconds
+      });
+
+      if (retryAfterSeconds) {
+        res.set("Retry-After", String(retryAfterSeconds));
+      }
+
+      return res.status(429).json({
+        error: error.message || "Gemini-Kontingent ausgeschöpft.",
+        code: error.code || "GEMINI_QUOTA_EXCEEDED",
+        dailyQuota: Boolean(error.isDailyQuota),
+        retryAfterSeconds
+      });
+    }
+
     console.error("ANALYZE ERROR:", error);
 
     return res.status(500).json({
@@ -964,4 +1186,3 @@ app.listen(PORT, () => {
   console.log(`Gemini Model: ${GEMINI_MODEL}`);
   console.log(`Fallback Model: ${GEMINI_FALLBACK_MODEL}`);
 });
-
