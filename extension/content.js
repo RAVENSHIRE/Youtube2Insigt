@@ -30,10 +30,40 @@ chrome.runtime.onMessage.addListener(
         ?.trim() ||
       null;
 
+    const channelLink =
+      document.querySelector("#owner ytd-channel-name a") ||
+      document.querySelector("ytd-watch-metadata ytd-channel-name a") ||
+      document.querySelector("#channel-name a");
+
+    const channelAvatar =
+      document.querySelector("#owner #avatar img") ||
+      document.querySelector("ytd-watch-metadata #avatar img") ||
+      document.querySelector("ytd-video-owner-renderer #avatar img");
+
+    const subscriberCount =
+      document
+        .querySelector("#owner-sub-count")
+        ?.textContent
+        ?.trim() ||
+      document
+        .querySelector("ytd-video-owner-renderer #subscriber-count")
+        ?.textContent
+        ?.trim() ||
+      null;
+
+    const channelUrl = channelLink?.href || null;
+    const channelAvatarUrl =
+      channelAvatar?.currentSrc ||
+      channelAvatar?.src ||
+      null;
+
     sendResponse({
       title: title || null,
       creator,
-      url: window.location.href
+      url: window.location.href,
+      channelUrl,
+      channelAvatarUrl,
+      subscriberCount
     });
 
     return true;
