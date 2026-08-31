@@ -570,7 +570,32 @@ async function analyzeTranscript({ transcript, title, creator }) {
   };
 }
 
-async function analyzeVideo({ videoId, title, creator, url }) {
+function normalizeChannel({
+  creator,
+  channelUrl,
+  channelAvatarUrl,
+  subscriberCount
+}) {
+  const channel = {
+    name: cleanString(creator),
+    url: cleanString(channelUrl),
+    avatar_url: cleanString(channelAvatarUrl),
+    subscriber_count: cleanString(subscriberCount)
+  };
+
+  return Object.values(channel).some(Boolean) ? channel : null;
+}
+
+async function analyzeVideo({
+  videoId,
+  title,
+  creator,
+  url,
+  publishedAt,
+  channelUrl,
+  channelAvatarUrl,
+  subscriberCount
+}) {
   return withAnalysisLock(videoId, async () => {
     // Existing videos are an immutable cache and are never analyzed automatically.
     const videos = loadVideos();
@@ -591,6 +616,13 @@ async function analyzeVideo({ videoId, title, creator, url }) {
       creator
     });
 
+    const channel = normalizeChannel({
+      creator,
+      channelUrl,
+      channelAvatarUrl,
+      subscriberCount
+    });
+
     const result = {
       analysis_version: ANALYSIS_VERSION,
       analysis_models: [GEMINI_MODEL],
@@ -601,7 +633,11 @@ async function analyzeVideo({ videoId, title, creator, url }) {
         url:
           cleanString(url) ||
           `https://www.youtube.com/watch?v=${videoId}`,
-        analyzed_at: new Date().toISOString()
+        published_at: cleanString(publishedAt),
+        analyzed_at: new Date().toISOString(),
+        channel: channel
+          ? { ...channel, updated_at: new Date().toISOString() }
+          : null
       },
       summary: analysis.summary,
       companies: analysis.companies
@@ -621,6 +657,47 @@ async function analyzeVideo({ videoId, title, creator, url }) {
     console.log(`CACHE SAVED: ${videoId}`);
     return { cached: false, videoId };
   });
+}
+
+function updateVideoMetadata(videoId, metadata) {
+  const videos = loadVideos();
+  const stored = videos[videoId];
+
+  if (!stored?.video) {
+    return null;
+  }
+
+  const currentVideo = stored.video;
+  const nextChannel = normalizeChannel(metadata);
+  const nextVideo = {
+    ...currentVideo,
+    title: cleanString(metadata.title) || currentVideo.title,
+    creator: cleanString(metadata.creator) || currentVideo.creator,
+    url: cleanString(metadata.url) || currentVideo.url,
+    published_at: cleanString(metadata.publishedAt) || currentVideo.published_at || null,
+    channel: nextChannel
+      ? {
+          ...(currentVideo.channel || {}),
+          ...Object.fromEntries(
+            Object.entries(nextChannel).filter(([, value]) => value)
+          )
+        }
+      : currentVideo.channel || null
+  };
+
+  if (JSON.stringify(nextVideo) !== JSON.stringify(currentVideo)) {
+    if (nextChannel && nextVideo.channel) {
+      nextVideo.channel.updated_at = new Date().toISOString();
+    }
+
+    videos[videoId] = {
+      ...stored,
+      video: nextVideo
+    };
+    saveVideos(videos);
+  }
+
+  return videos[videoId];
 }
 
 function buildCompanyIndex(videos) {
@@ -651,6 +728,7 @@ function buildCompanyIndex(videos) {
           asset_type: assetType,
           mentions: 0,
           videoIds: new Set(),
+          presentations: [],
           sentiment: {
             bull: 0,
             neutral: 0,
@@ -664,6 +742,14 @@ function buildCompanyIndex(videos) {
 
       if (video?.video?.id) {
         entry.videoIds.add(video.video.id);
+        entry.presentations.push({
+          videoId: video.video.id,
+          title: video.video.title,
+          url: video.video.url,
+          creator: video.video.creator,
+          presentedAt: video.video.published_at || video.video.analyzed_at,
+          dateSource: video.video.published_at ? "published" : "analyzed"
+        });
       }
 
       if (SENTIMENTS.has(company.sentiment)) {
@@ -673,20 +759,136 @@ function buildCompanyIndex(videos) {
   }
 
   return [...companies.values()]
-    .map(entry => ({
-      company: entry.company,
-      ticker: entry.ticker,
-      asset_type: entry.asset_type,
-      mentions: entry.mentions,
-      videos: entry.videoIds.size,
-      sentiment: entry.sentiment
-    }))
+    .map(entry => {
+      const presentations = entry.presentations.sort((a, b) =>
+        String(a.presentedAt).localeCompare(String(b.presentedAt))
+      );
+
+      return {
+        company: entry.company,
+        ticker: entry.ticker,
+        asset_type: entry.asset_type,
+        mentions: entry.mentions,
+        videos: entry.videoIds.size,
+        firstPresentedAt: presentations[0]?.presentedAt || null,
+        firstPresentation: presentations[0] || null,
+        sentiment: entry.sentiment
+      };
+    })
     .sort((a, b) => b.mentions - a.mentions);
+}
+
+function buildChannelIndex(videos) {
+  const channels = new Map();
+
+  for (const research of Object.values(videos)) {
+    const video = research?.video || {};
+    const storedChannel = video.channel || {};
+    const name = cleanString(storedChannel.name) || cleanString(video.creator);
+
+    if (!name) {
+      continue;
+    }
+
+    const key = normalizeIdentity(name);
+    const analyzedAt = cleanString(video.analyzed_at);
+
+    if (!channels.has(key)) {
+      channels.set(key, {
+        name,
+        url: cleanString(storedChannel.url),
+        avatarUrl: cleanString(storedChannel.avatar_url),
+        subscriberCount: cleanString(storedChannel.subscriber_count),
+        analyzedVideos: 0,
+        latestAnalysis: analyzedAt,
+        metadataAt: cleanString(storedChannel.updated_at) || analyzedAt
+      });
+    }
+
+    const entry = channels.get(key);
+    entry.analyzedVideos += 1;
+
+    if (
+      analyzedAt &&
+      (!entry.latestAnalysis || analyzedAt > entry.latestAnalysis)
+    ) {
+      entry.latestAnalysis = analyzedAt;
+    }
+
+    const metadataAt = cleanString(storedChannel.updated_at) || analyzedAt;
+
+    if (metadataAt && (!entry.metadataAt || metadataAt >= entry.metadataAt)) {
+      entry.url = cleanString(storedChannel.url) || entry.url;
+      entry.avatarUrl = cleanString(storedChannel.avatar_url) || entry.avatarUrl;
+      entry.subscriberCount =
+        cleanString(storedChannel.subscriber_count) || entry.subscriberCount;
+      entry.metadataAt = metadataAt;
+    }
+  }
+
+  return [...channels.values()]
+    .map(({ metadataAt, ...channel }) => channel)
+    .sort((a, b) => {
+      if (b.analyzedVideos !== a.analyzedVideos) {
+        return b.analyzedVideos - a.analyzedVideos;
+      }
+
+      return String(b.latestAnalysis).localeCompare(String(a.latestAnalysis));
+    });
+}
+
+function buildDashboard(videos) {
+  const companies = buildCompanyIndex(videos);
+  const dashboardVideos = Object.values(videos)
+    .filter(research => research?.video?.id)
+    .map(research => ({
+      id: research.video.id,
+      title: research.video.title,
+      creator: research.video.creator,
+      url: research.video.url,
+      publishedAt: research.video.published_at,
+      analyzedAt: research.video.analyzed_at,
+      channel: research.video.channel || null,
+      summary: research.summary,
+      companies: Array.isArray(research.companies)
+        ? research.companies.map(company => ({
+            ...company,
+            price_targets: Array.isArray(company.price_targets)
+              ? company.price_targets.map(target => ({ ...target }))
+              : [],
+            levels: Array.isArray(company.levels)
+              ? company.levels.map(level => ({ ...level }))
+              : [],
+            evidence: Array.isArray(company.evidence)
+              ? [...company.evidence]
+              : []
+          }))
+        : []
+    }))
+    .sort((a, b) => String(b.analyzedAt).localeCompare(String(a.analyzedAt)));
+
+  return {
+    totalVideos: dashboardVideos.length,
+    totalCompanies: companies.length,
+    totalReports: companies.reduce((sum, company) => sum + company.mentions, 0),
+    channels: buildChannelIndex(videos),
+    companies,
+    videos: dashboardVideos
+  };
 }
 
 app.post("/analyze", async (req, res) => {
   try {
-    const { videoId, title, creator, url } = req.body || {};
+    const {
+      videoId,
+      title,
+      creator,
+      url,
+      publishedAt,
+      channelUrl,
+      channelAvatarUrl,
+      subscriberCount
+    } = req.body || {};
 
     if (!isValidVideoId(videoId)) {
       return res.status(400).json({
@@ -698,7 +900,11 @@ app.post("/analyze", async (req, res) => {
       videoId,
       title,
       creator,
-      url
+      url,
+      publishedAt,
+      channelUrl,
+      channelAvatarUrl,
+      subscriberCount
     });
 
     return res.json(result);
@@ -711,6 +917,46 @@ app.post("/analyze", async (req, res) => {
 
     return res.status(status).json({
       error: error.message || "Analyse fehlgeschlagen."
+    });
+  }
+});
+
+app.post("/videos/:videoId/metadata", (req, res) => {
+  try {
+    const { videoId } = req.params;
+
+    if (!isValidVideoId(videoId)) {
+      return res.status(400).json({
+        error: "Ungültige videoId."
+      });
+    }
+
+    const research = updateVideoMetadata(videoId, req.body || {});
+
+    if (!research) {
+      return res.status(404).json({
+        error: "Video nicht gefunden."
+      });
+    }
+
+    return res.json(research);
+  } catch (error) {
+    console.error("UPDATE VIDEO METADATA ERROR:", error);
+
+    return res.status(500).json({
+      error: "Videometadaten konnten nicht gespeichert werden."
+    });
+  }
+});
+
+app.get("/dashboard", (req, res) => {
+  try {
+    return res.json(buildDashboard(loadVideos()));
+  } catch (error) {
+    console.error("GET DASHBOARD ERROR:", error);
+
+    return res.status(500).json({
+      error: "Dashboard konnte nicht geladen werden."
     });
   }
 });

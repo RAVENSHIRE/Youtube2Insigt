@@ -1,35 +1,76 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YT Investor Research</title>
   <link rel="stylesheet" href="sidepanel.css">
 </head>
-
 <body>
   <main class="app">
-    <header class="header">
-      <h1 class="title">YT Investor Research</h1>
-      <div class="subtitle">
-        YouTube Investment Research Engine
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" role="img">
+            <path class="logo-play" d="M15 12.7 29 20 15 27.3Z"></path>
+            <path class="logo-chart" d="m11 29 6-5 4 2 8-9"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Signal<span>Tube</span></div>
+          <div class="brand-kicker">Investor Research</div>
+        </div>
       </div>
+
+      <button id="refreshButton" class="icon-button" type="button" aria-label="Dashboard aktualisieren" title="Aktualisieren">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"></path>
+        </svg>
+      </button>
     </header>
 
-    <section id="videoCard" class="card hidden">
-      <div id="creator" class="creator"></div>
-      <div id="videoTitle" class="video-title"></div>
+    <div id="statusBar" class="status-bar hidden" role="status" aria-live="polite">
+      <span class="status-pulse" aria-hidden="true"></span>
+      <span id="statusText"></span>
+    </div>
+
+    <section id="dashboard" class="dashboard hidden">
+      <section class="hero-card">
+        <div id="channelProfile" class="channel-profile"></div>
+
+        <div class="allocation-panel">
+          <div class="section-label">Report-Mix</div>
+          <div class="allocation-layout">
+            <div id="companyDonut" class="donut donut-main" aria-label="Unternehmen nach Vorstellungen in analysierten Videos"></div>
+            <div id="companyLegend" class="company-legend"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="reportInspector" class="report-inspector hidden" aria-live="polite"></section>
+
+      <section class="videos-section">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">Research Library</div>
+            <h1>Analysierte Videos</h1>
+          </div>
+          <span id="videoCount" class="count-badge"></span>
+        </div>
+
+        <div id="videoList" class="video-list"></div>
+      </section>
     </section>
 
-    <section id="results" class="card hidden"></section>
-
-    <section id="placeholder" class="card">
-      <div id="status" class="placeholder">
-        Detecting YouTube video...
+    <section id="emptyState" class="empty-state hidden">
+      <div class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48">
+          <path d="M10 14h28v20H10z"></path>
+          <path d="m21 19 9 5-9 5z"></path>
+        </svg>
       </div>
+      <h1 id="emptyTitle">Noch keine Analysen</h1>
+      <p id="emptyText">Öffne ein YouTube-Video, um deinen ersten Research-Report zu erstellen.</p>
     </section>
   </main>
 
