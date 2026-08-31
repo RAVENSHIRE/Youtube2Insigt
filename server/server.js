@@ -591,6 +591,7 @@ async function analyzeVideo({
   title,
   creator,
   url,
+  publishedAt,
   channelUrl,
   channelAvatarUrl,
   subscriberCount
@@ -632,6 +633,7 @@ async function analyzeVideo({
         url:
           cleanString(url) ||
           `https://www.youtube.com/watch?v=${videoId}`,
+        published_at: cleanString(publishedAt),
         analyzed_at: new Date().toISOString(),
         channel: channel
           ? { ...channel, updated_at: new Date().toISOString() }
@@ -672,6 +674,7 @@ function updateVideoMetadata(videoId, metadata) {
     title: cleanString(metadata.title) || currentVideo.title,
     creator: cleanString(metadata.creator) || currentVideo.creator,
     url: cleanString(metadata.url) || currentVideo.url,
+    published_at: cleanString(metadata.publishedAt) || currentVideo.published_at || null,
     channel: nextChannel
       ? {
           ...(currentVideo.channel || {}),
@@ -725,6 +728,7 @@ function buildCompanyIndex(videos) {
           asset_type: assetType,
           mentions: 0,
           videoIds: new Set(),
+          presentations: [],
           sentiment: {
             bull: 0,
             neutral: 0,
@@ -738,6 +742,14 @@ function buildCompanyIndex(videos) {
 
       if (video?.video?.id) {
         entry.videoIds.add(video.video.id);
+        entry.presentations.push({
+          videoId: video.video.id,
+          title: video.video.title,
+          url: video.video.url,
+          creator: video.video.creator,
+          presentedAt: video.video.published_at || video.video.analyzed_at,
+          dateSource: video.video.published_at ? "published" : "analyzed"
+        });
       }
 
       if (SENTIMENTS.has(company.sentiment)) {
@@ -747,14 +759,22 @@ function buildCompanyIndex(videos) {
   }
 
   return [...companies.values()]
-    .map(entry => ({
-      company: entry.company,
-      ticker: entry.ticker,
-      asset_type: entry.asset_type,
-      mentions: entry.mentions,
-      videos: entry.videoIds.size,
-      sentiment: entry.sentiment
-    }))
+    .map(entry => {
+      const presentations = entry.presentations.sort((a, b) =>
+        String(a.presentedAt).localeCompare(String(b.presentedAt))
+      );
+
+      return {
+        company: entry.company,
+        ticker: entry.ticker,
+        asset_type: entry.asset_type,
+        mentions: entry.mentions,
+        videos: entry.videoIds.size,
+        firstPresentedAt: presentations[0]?.presentedAt || null,
+        firstPresentation: presentations[0] || null,
+        sentiment: entry.sentiment
+      };
+    })
     .sort((a, b) => b.mentions - a.mentions);
 }
 
@@ -826,15 +846,22 @@ function buildDashboard(videos) {
       title: research.video.title,
       creator: research.video.creator,
       url: research.video.url,
+      publishedAt: research.video.published_at,
       analyzedAt: research.video.analyzed_at,
       channel: research.video.channel || null,
       summary: research.summary,
       companies: Array.isArray(research.companies)
         ? research.companies.map(company => ({
-            company: company.company,
-            ticker: company.ticker,
-            sentiment: company.sentiment,
-            thesis: company.thesis
+            ...company,
+            price_targets: Array.isArray(company.price_targets)
+              ? company.price_targets.map(target => ({ ...target }))
+              : [],
+            levels: Array.isArray(company.levels)
+              ? company.levels.map(level => ({ ...level }))
+              : [],
+            evidence: Array.isArray(company.evidence)
+              ? [...company.evidence]
+              : []
           }))
         : []
     }))
@@ -857,6 +884,7 @@ app.post("/analyze", async (req, res) => {
       title,
       creator,
       url,
+      publishedAt,
       channelUrl,
       channelAvatarUrl,
       subscriberCount
@@ -873,6 +901,7 @@ app.post("/analyze", async (req, res) => {
       title,
       creator,
       url,
+      publishedAt,
       channelUrl,
       channelAvatarUrl,
       subscriberCount
