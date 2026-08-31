@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT Investor Research",
-  "version": "0.5.0",
+  "version": "0.5.1",
 
   "permissions": [
     "activeTab",
@@ -10,6 +10,8 @@
 
   "host_permissions": [
     "https://www.youtube.com/*",
+    "https://yt3.ggpht.com/*",
+    "https://yt3.googleusercontent.com/*",
     "http://localhost:3000/*"
   ],
 
