@@ -5,7 +5,13 @@
       "title": "Opening Bell: Bitcoin, Dow Jones, Nike, Robinhood, Coinbase, Strategy, Circle, Gold, Barrick Mining",
       "creator": "DER AKTIONÄR TV",
       "url": "https://www.youtube.com/watch?v=bgSHTyHHERc&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi",
-      "analyzed_at": "2026-08-24T00:55:10.579Z"
+      "analyzed_at": "2026-08-24T00:55:10.579Z",
+      "channel": {
+        "name": "DER AKTIONÄR TV",
+        "url": "https://www.youtube.com/@der.aktionaer",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj",
+        "updated_at": "2026-08-31T00:00:00.000Z"
+      }
     },
     "companies": [
       {
@@ -196,7 +202,13 @@
       "title": "Opening Bell: Bitcoin, Ethereum, S&P 500, Moderna, Alibaba, Walmart, Axon Enterprise, IBM, SpaceX",
       "creator": "DER AKTIONÄR TV",
       "url": "https://www.youtube.com/watch?v=IC2q3F2KxCI&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=2",
-      "analyzed_at": "2026-08-24T00:55:34.891Z"
+      "analyzed_at": "2026-08-24T00:55:34.891Z",
+      "channel": {
+        "name": "DER AKTIONÄR TV",
+        "url": "https://www.youtube.com/@der.aktionaer",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj",
+        "updated_at": "2026-08-31T00:00:00.000Z"
+      }
     },
     "companies": [
       {
@@ -317,7 +329,13 @@
       "title": "Opening Bell: AMD, Broadcom, LAM Research, T-Mobile US, First Solar",
       "creator": "DER AKTIONÄR TV",
       "url": "https://www.youtube.com/watch?v=m3NcIR5JApE&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=32",
-      "analyzed_at": "2026-08-24T20:57:12.039Z"
+      "analyzed_at": "2026-08-24T20:57:12.039Z",
+      "channel": {
+        "name": "DER AKTIONÄR TV",
+        "url": "https://www.youtube.com/@der.aktionaer",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj",
+        "updated_at": "2026-08-31T00:00:00.000Z"
+      }
     },
     "companies": [
       {
@@ -458,9 +476,15 @@
     "video": {
       "id": "HEEO005FvLE",
       "title": "Opening Bell",
-      "creator": "DER AKTION�R TV",
+      "creator": "DER AKTIONÄR TV",
       "url": "https://www.youtube.com/watch?v=HEEO005FvLE",
-      "analyzed_at": "2026-08-26T07:38:12.899Z"
+      "analyzed_at": "2026-08-26T07:38:12.899Z",
+      "channel": {
+        "name": "DER AKTIONÄR TV",
+        "url": "https://www.youtube.com/@der.aktionaer",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj",
+        "updated_at": "2026-08-31T00:00:00.000Z"
+      }
     },
     "companies": [
       {
