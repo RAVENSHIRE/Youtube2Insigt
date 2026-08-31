@@ -17,6 +17,7 @@ const dashboardElement = document.getElementById("dashboard");
 const channelProfile = document.getElementById("channelProfile");
 const companyDonut = document.getElementById("companyDonut");
 const companyLegend = document.getElementById("companyLegend");
+const reportInspector = document.getElementById("reportInspector");
 const videoCount = document.getElementById("videoCount");
 const videoList = document.getElementById("videoList");
 const statusBar = document.getElementById("statusBar");
@@ -32,9 +33,18 @@ let lastDashboard = null;
 let refreshTimer = null;
 let isRefreshing = false;
 let refreshQueued = false;
+let visibleVideos = [];
+let visibleCompanyReports = [];
+let selectedCompanyKey = null;
+let selectedVideoId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshButton.addEventListener("click", refreshPanel);
+  companyDonut.addEventListener("click", handleCompanySelection);
+  companyDonut.addEventListener("keydown", handleCompanyKeyboardSelection);
+  companyLegend.addEventListener("click", handleCompanySelection);
+  videoList.addEventListener("click", handleVideoReportSelection);
+  reportInspector.addEventListener("click", handleInspectorClick);
   refreshPanel();
 });
 
@@ -244,6 +254,7 @@ async function getYouTubeMetadata(tab) {
       title: data.title,
       creator: data.creator || null,
       url: data.url || tab.url,
+      publishedAt: data.publishedAt || null,
       channelUrl: data.channelUrl || null,
       channelAvatarUrl: data.channelAvatarUrl || null,
       subscriberCount: data.subscriberCount || null
@@ -253,6 +264,7 @@ async function getYouTubeMetadata(tab) {
       title: tab.title?.replace(" - YouTube", "").trim() || null,
       creator: null,
       url: tab.url,
+      publishedAt: null,
       channelUrl: null,
       channelAvatarUrl: null,
       subscriberCount: null
@@ -292,11 +304,33 @@ function renderDashboard(data) {
   }
 
   const channel = selectChannel(data);
-  renderChannel(channel, data);
-  renderCompanyAllocation(data.companies, data.totalReports);
-  renderVideos(data.videos);
+  visibleVideos = filterVideosForChannel(data.videos, channel);
+  visibleCompanyReports = buildCompanyReports(visibleVideos);
 
-  videoCount.textContent = `${data.totalVideos} ${data.totalVideos === 1 ? "Video" : "Videos"}`;
+  if (
+    selectedCompanyKey &&
+    !visibleCompanyReports.some(company => company.key === selectedCompanyKey)
+  ) {
+    selectedCompanyKey = null;
+  }
+
+  if (selectedVideoId && !visibleVideos.some(video => video.id === selectedVideoId)) {
+    selectedVideoId = null;
+  }
+
+  renderChannel(channel, data);
+  renderCompanyAllocation(visibleCompanyReports);
+  renderVideos(visibleVideos);
+
+  if (selectedVideoId && visibleVideos.some(video => video.id === selectedVideoId)) {
+    renderVideoInspector(selectedVideoId);
+  } else if (selectedCompanyKey) {
+    renderCompanyInspector(selectedCompanyKey);
+  } else {
+    closeReportInspector();
+  }
+
+  videoCount.textContent = `${visibleVideos.length} ${visibleVideos.length === 1 ? "Video" : "Videos"}`;
   emptyState.classList.add("hidden");
   dashboardElement.classList.remove("hidden");
 }
@@ -366,7 +400,7 @@ function renderChannel(channel, data) {
       </div>
       <div class="stat">
         <strong class="stat-value">${analyzedVideos}</strong>
-        <span class="stat-label">Analysiert</span>
+        <span class="stat-label">Analysierte Videos</span>
       </div>
     </div>
   `;
@@ -378,43 +412,108 @@ function renderChannel(channel, data) {
   });
 }
 
-function renderCompanyAllocation(companies, totalReports) {
-  const weighted = companies
-    .filter(company => Number(company.mentions) > 0)
-    .map(company => ({
-      ...company,
-      weight: Number(company.mentions)
-    }));
+function filterVideosForChannel(videos, channel) {
+  const channelName = normalizeIdentity(channel?.name);
 
-  const chart = buildDonut(weighted, item => item.weight);
-  const reports = totalReports || chart.total;
+  if (!channelName || channelName === normalizeIdentity("Research Library")) {
+    return videos;
+  }
 
-  companyDonut.style.background = chart.background;
-  companyDonut.title = chart.slices
-    .map(slice => `${slice.item.company}: ${slice.value} Report${slice.value === 1 ? "" : "s"}`)
-    .join("\n");
+  const matches = videos.filter(video => {
+    const videoChannelName = video.channel?.name || video.creator;
+    return normalizeIdentity(videoChannelName) === channelName;
+  });
+
+  return matches.length ? matches : videos;
+}
+
+function buildCompanyReports(videos) {
+  const companies = new Map();
+
+  for (const video of videos) {
+    for (const report of Array.isArray(video.companies) ? video.companies : []) {
+      const company = String(report.company || "").trim();
+
+      if (!company) {
+        continue;
+      }
+
+      const key = companyKey(report);
+
+      if (!companies.has(key)) {
+        companies.set(key, {
+          key,
+          company,
+          ticker: report.ticker || null,
+          assetType: report.asset_type || "other",
+          presentations: [],
+          videoIds: new Set(),
+          sentiment: { bull: 0, neutral: 0, bear: 0 }
+        });
+      }
+
+      const entry = companies.get(key);
+
+      if (entry.videoIds.has(video.id)) {
+        continue;
+      }
+
+      entry.videoIds.add(video.id);
+      const sentiment = ["bull", "neutral", "bear"].includes(report.sentiment)
+        ? report.sentiment
+        : "neutral";
+
+      entry.sentiment[sentiment] += 1;
+      entry.presentations.push({
+        video,
+        report,
+        presentedAt: video.publishedAt || video.analyzedAt,
+        dateSource: video.publishedAt ? "published" : "analyzed"
+      });
+    }
+  }
+
+  return [...companies.values()]
+    .map(company => {
+      company.presentations.sort((a, b) =>
+        String(a.presentedAt).localeCompare(String(b.presentedAt))
+      );
+
+      return {
+        ...company,
+        firstPresentation: company.presentations[0] || null,
+        weight: company.presentations.length
+      };
+    })
+    .sort((a, b) => b.weight - a.weight || a.company.localeCompare(b.company));
+}
+
+function renderCompanyAllocation(companies) {
+  const chart = buildDonut(companies, item => item.weight);
+
+  companyDonut.style.background = "none";
+  companyDonut.title = "Klicke auf ein Segment, um alle zugehörigen Video-Reports zu lesen.";
   companyDonut.innerHTML = `
+    ${renderDonutSvg(chart, true)}
     <div class="donut-center">
-      <strong class="donut-value">${reports}</strong>
-      <span class="donut-label">Reports</span>
+      <strong class="donut-value">${chart.total}</strong>
+      <span class="donut-label">Vorstellungen</span>
     </div>
   `;
 
-  const visibleSlices = chart.slices.slice(0, 5);
-
-  companyLegend.innerHTML = visibleSlices.length
-    ? `
-      ${visibleSlices.map(slice => `
-        <div class="legend-item" title="${escapeHtml(slice.item.company || "")}">
-          <span class="legend-dot" style="background:${slice.color}"></span>
-          <span class="legend-name">${escapeHtml(slice.item.ticker || slice.item.company || "")}</span>
-          <span class="legend-value">${Math.round(slice.percentage)}%</span>
-        </div>
-      `).join("")}
-      ${chart.slices.length > visibleSlices.length
-        ? `<div class="legend-more">+${chart.slices.length - visibleSlices.length} weitere im Chart</div>`
-        : ""}
-    `
+  companyLegend.innerHTML = chart.slices.length
+    ? chart.slices.map(slice => `
+      <button
+        class="legend-item ${selectedCompanyKey === slice.item.key ? "is-selected" : ""}"
+        type="button"
+        data-company-key="${escapeHtml(slice.item.key)}"
+        title="${escapeHtml(`${slice.item.company}: ${slice.value} von ${visibleVideos.length} analysierten Videos`)}"
+      >
+        <span class="legend-dot" style="background:${slice.color}"></span>
+        <span class="legend-name">${escapeHtml(slice.item.ticker || slice.item.company)}</span>
+        <span class="legend-value">${slice.value}× · ${Math.round(slice.percentage)}%</span>
+      </button>
+    `).join("")
     : '<div class="legend-more">Noch keine Unternehmen</div>';
 }
 
@@ -426,11 +525,11 @@ function renderVideos(videos) {
       `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
     const title = video.title || "Unbenanntes Video";
     const creator = video.creator || "Unbekannter Kanal";
-    const date = formatDate(video.analyzedAt);
+    const date = formatDate(video.publishedAt || video.analyzedAt);
     const isCurrent = video.id === currentVideoId;
 
     return `
-      <article class="video-item ${isCurrent ? "is-current" : ""}">
+      <article class="video-item ${isCurrent ? "is-current" : ""}" data-video-id="${escapeHtml(video.id)}">
         <div class="video-top">
           <div class="video-copy">
             <div class="video-meta">
@@ -443,17 +542,21 @@ function renderVideos(videos) {
             </h2>
           </div>
 
-          <div
+          <a
             class="donut donut-mini"
-            style="background:${chart.background}"
+            href="${escapeHtml(videoUrl)}"
+            target="_blank"
+            rel="noreferrer"
+            data-video-report="${escapeHtml(video.id)}"
             title="${escapeHtml(companies.map(company => company.company).filter(Boolean).join(", "))}"
-            aria-label="${companies.length} vorgestellte Unternehmen"
+            aria-label="Video öffnen und vollständigen Analysebericht mit ${companies.length} Unternehmen anzeigen"
           >
+            ${renderDonutSvg(chart)}
             <div class="donut-center">
               <strong class="donut-value">${companies.length}</strong>
               <span class="donut-label">Stocks</span>
             </div>
-          </div>
+          </a>
         </div>
 
         ${video.summary
@@ -469,12 +572,14 @@ function renderVideos(videos) {
                 const label = company.ticker || company.company || "Unternehmen";
 
                 return `
-                  <span
+                  <button
+                    type="button"
                     class="company-chip sentiment-${sentiment}"
+                    data-company-key="${escapeHtml(companyKey(company))}"
                     title="${escapeHtml(company.thesis || company.company || "")}"
                   >
                     <span>${escapeHtml(label)}</span>
-                  </span>
+                  </button>
                 `;
               }).join("")
             : '<span class="company-chip"><span>Keine Unternehmen erkannt</span></span>'}
@@ -484,6 +589,307 @@ function renderVideos(videos) {
       </article>
     `;
   }).join("");
+}
+
+function companyKey(company) {
+  const assetType = normalizeIdentity(company.asset_type || "other");
+  const identity = company.ticker
+    ? normalizeIdentity(company.ticker)
+    : normalizeIdentity(company.company);
+
+  return `${assetType}:${identity}`;
+}
+
+function handleCompanySelection(event) {
+  const trigger = event.target.closest("[data-company-key]");
+
+  if (!trigger) {
+    return;
+  }
+
+  selectCompanyReport(trigger.dataset.companyKey);
+}
+
+function handleCompanyKeyboardSelection(event) {
+  if (!["Enter", " "].includes(event.key)) {
+    return;
+  }
+
+  const trigger = event.target.closest("[data-company-key]");
+
+  if (!trigger) {
+    return;
+  }
+
+  event.preventDefault();
+  selectCompanyReport(trigger.dataset.companyKey);
+}
+
+function handleVideoReportSelection(event) {
+  const companyTrigger = event.target.closest("[data-company-key]");
+
+  if (companyTrigger) {
+    selectCompanyReport(companyTrigger.dataset.companyKey);
+    return;
+  }
+
+  const reportTrigger = event.target.closest("[data-video-report]");
+
+  if (reportTrigger) {
+    selectedCompanyKey = null;
+    selectedVideoId = reportTrigger.dataset.videoReport;
+    renderCompanyAllocation(visibleCompanyReports);
+    renderVideoInspector(selectedVideoId);
+  }
+}
+
+function handleInspectorClick(event) {
+  if (event.target.closest("[data-close-inspector]")) {
+    selectedCompanyKey = null;
+    selectedVideoId = null;
+    renderCompanyAllocation(visibleCompanyReports);
+    closeReportInspector();
+  }
+}
+
+function selectCompanyReport(key) {
+  if (!visibleCompanyReports.some(company => company.key === key)) {
+    return;
+  }
+
+  selectedCompanyKey = key;
+  selectedVideoId = null;
+  renderCompanyAllocation(visibleCompanyReports);
+  renderCompanyInspector(key);
+}
+
+function renderCompanyInspector(key) {
+  const company = visibleCompanyReports.find(item => item.key === key);
+
+  if (!company) {
+    closeReportInspector();
+    return;
+  }
+
+  const first = company.firstPresentation;
+  const firstDate = formatDate(first?.presentedAt);
+  const firstDateHint = first?.dateSource === "published"
+    ? "Veröffentlichungsdatum des Videos"
+    : "Frühestes gespeichertes Analysedatum";
+
+  reportInspector.innerHTML = `
+    <div class="inspector-header">
+      <div>
+        <div class="eyebrow">Unternehmenshistorie</div>
+        <h2>${escapeHtml(company.company)}${company.ticker ? ` <span>${escapeHtml(company.ticker)}</span>` : ""}</h2>
+      </div>
+      ${renderInspectorCloseButton()}
+    </div>
+
+    <div class="inspector-metrics">
+      <div class="inspector-metric">
+        <span>Erstmals vorgestellt</span>
+        <strong>${escapeHtml(firstDate)}</strong>
+        <small>${escapeHtml(firstDateHint)}</small>
+      </div>
+      <div class="inspector-metric">
+        <span>Vom Kanal vorgestellt</span>
+        <strong>${company.weight} von ${visibleVideos.length} Videos</strong>
+        <small>Nur analysierte Videos dieses Kanals</small>
+      </div>
+    </div>
+
+    <div class="report-stack">
+      ${company.presentations.map((presentation, index) =>
+        renderPresentationReport(presentation, index)
+      ).join("")}
+    </div>
+  `;
+
+  openReportInspector();
+}
+
+function renderVideoInspector(videoId) {
+  const video = visibleVideos.find(item => item.id === videoId);
+
+  if (!video) {
+    closeReportInspector();
+    return;
+  }
+
+  const videoUrl = safeUrl(video.url) ||
+    `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
+  const companies = Array.isArray(video.companies) ? video.companies : [];
+
+  reportInspector.innerHTML = `
+    <div class="inspector-header">
+      <div>
+        <div class="eyebrow">Vollständiger Analysebericht</div>
+        <h2>${escapeHtml(video.title || "Unbenanntes Video")}</h2>
+      </div>
+      ${renderInspectorCloseButton()}
+    </div>
+
+    <div class="report-video-meta">
+      <span>${escapeHtml(video.creator || "Unbekannter Kanal")}</span>
+      <span>${escapeHtml(formatDate(video.publishedAt || video.analyzedAt))}</span>
+      <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noreferrer">Video öffnen ↗</a>
+    </div>
+
+    ${video.summary
+      ? `<section class="report-summary"><h3>Zusammenfassung</h3><p>${escapeHtml(video.summary)}</p></section>`
+      : ""}
+
+    <div class="report-stack">
+      ${companies.length
+        ? companies.map((report, index) => renderCompanyReport(report, index)).join("")
+        : '<p class="report-empty">Keine Unternehmen erkannt.</p>'}
+    </div>
+  `;
+
+  openReportInspector();
+}
+
+function renderPresentationReport(presentation, index) {
+  const { video, report } = presentation;
+  const videoUrl = safeUrl(video.url) ||
+    `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
+
+  return `
+    <details class="report-entry" ${index === 0 ? "open" : ""}>
+      <summary>
+        <span>${escapeHtml(video.title || "Unbenanntes Video")}</span>
+        <small>${escapeHtml(formatDate(presentation.presentedAt))}</small>
+      </summary>
+      <div class="report-entry-body">
+        <a class="report-video-link" href="${escapeHtml(videoUrl)}" target="_blank" rel="noreferrer">Video öffnen ↗</a>
+        ${video.summary ? `<p class="report-context">${escapeHtml(video.summary)}</p>` : ""}
+        ${renderCompanyReportContent(report)}
+      </div>
+    </details>
+  `;
+}
+
+function renderCompanyReport(report, index) {
+  return `
+    <details class="report-entry" ${index === 0 ? "open" : ""}>
+      <summary>
+        <span>${escapeHtml(report.company || "Unternehmen")}${report.ticker ? ` · ${escapeHtml(report.ticker)}` : ""}</span>
+        <small>${escapeHtml(sentimentLabel(report.sentiment))}</small>
+      </summary>
+      <div class="report-entry-body">${renderCompanyReportContent(report)}</div>
+    </details>
+  `;
+}
+
+function renderCompanyReportContent(report) {
+  const structuredTargets = Array.isArray(report.price_targets) ? report.price_targets : [];
+  const priceTargets = structuredTargets.length
+    ? structuredTargets
+    : report.price_target != null
+      ? [{
+          value: report.price_target,
+          currency: report.price_target_currency || report.currency || null,
+          context: null,
+          source: null
+        }]
+      : [];
+  const levels = Array.isArray(report.levels) ? report.levels : [];
+  const evidence = Array.isArray(report.evidence) ? report.evidence : [];
+  const facts = [
+    report.sentiment ? ["Sentiment", sentimentLabel(report.sentiment)] : null,
+    report.action && report.action !== "none" ? ["Aktion", actionLabel(report.action)] : null,
+    report.asset_type ? ["Asset", report.asset_type.toUpperCase()] : null,
+    report.time_horizon ? ["Zeithorizont", report.time_horizon] : null,
+    report.confidence != null && Number.isFinite(Number(report.confidence))
+      ? ["Konfidenz", `${Math.round(Number(report.confidence) * 100)} %`]
+      : null,
+    report.mentioned_move_pct != null && Number.isFinite(Number(report.mentioned_move_pct))
+      ? ["Genannte Bewegung", `${formatNumber(report.mentioned_move_pct)} %`]
+      : null
+  ].filter(Boolean);
+
+  return `
+    ${facts.length
+      ? `<div class="report-facts">${facts.map(([label, value]) => `
+          <div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
+        `).join("")}</div>`
+      : ""}
+    ${report.thesis
+      ? `<section class="report-section"><h4>Investment-These</h4><p>${escapeHtml(report.thesis)}</p></section>`
+      : ""}
+    ${priceTargets.length
+      ? `<section class="report-section"><h4>Kursziele</h4><ul>${priceTargets.map(target => `
+          <li><strong>${escapeHtml(formatAmount(target.value, target.currency))}</strong>${target.context ? ` — ${escapeHtml(target.context)}` : ""}${target.source ? ` <small>(${escapeHtml(target.source)})</small>` : ""}</li>
+        `).join("")}</ul></section>`
+      : ""}
+    ${levels.length
+      ? `<section class="report-section"><h4>Marken & Levels</h4><ul>${levels.map(level => `
+          <li><strong>${escapeHtml(levelLabel(level.type))}: ${escapeHtml(formatAmount(level.value, level.currency))}</strong>${level.context ? ` — ${escapeHtml(level.context)}` : ""}</li>
+        `).join("")}</ul></section>`
+      : ""}
+    ${evidence.length
+      ? `<section class="report-section"><h4>Belege aus dem Video</h4><ul>${evidence.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`
+      : ""}
+  `;
+}
+
+function renderInspectorCloseButton() {
+  return `
+    <button class="inspector-close" type="button" data-close-inspector aria-label="Analysebericht schließen" title="Schließen">×</button>
+  `;
+}
+
+function openReportInspector() {
+  reportInspector.classList.remove("hidden");
+  reportInspector.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function closeReportInspector() {
+  reportInspector.classList.add("hidden");
+  reportInspector.innerHTML = "";
+}
+
+function sentimentLabel(value) {
+  return ({ bull: "Bullish", neutral: "Neutral", bear: "Bearish" })[value] || "Neutral";
+}
+
+function actionLabel(value) {
+  return ({
+    buy: "Kaufen",
+    add: "Aufstocken",
+    hold: "Halten",
+    reduce: "Reduzieren",
+    sell: "Verkaufen",
+    watch: "Beobachten"
+  })[value] || value;
+}
+
+function levelLabel(value) {
+  return ({
+    support: "Unterstützung",
+    resistance: "Widerstand",
+    breakout: "Ausbruch",
+    entry: "Einstieg",
+    stop_loss: "Stop-Loss",
+    reference: "Referenz"
+  })[value] || value || "Level";
+}
+
+function formatAmount(value, currency) {
+  return [formatNumber(value), currency].filter(Boolean).join(" ");
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return String(value || "—");
+  }
+
+  return new Intl.NumberFormat("de-DE", {
+    maximumFractionDigits: 2
+  }).format(number);
 }
 
 function buildDonut(items, getWeight) {
@@ -511,6 +917,7 @@ function buildDonut(items, getWeight) {
       value,
       color,
       percentage: (value / total) * 100,
+      startPercentage: (start / 360) * 100,
       segment: `${color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`
     };
   });
@@ -522,7 +929,45 @@ function buildDonut(items, getWeight) {
   };
 }
 
+function renderDonutSvg(chart, interactive = false) {
+  const circles = chart.slices.map(slice => {
+    const selected = selectedCompanyKey === slice.item.key;
+    const attributes = interactive
+      ? `role="button" tabindex="0" data-company-key="${escapeHtml(slice.item.key)}" aria-label="${escapeHtml(`${slice.item.company}: ${slice.value} Vorstellungen, ${Math.round(slice.percentage)} Prozent`)}"`
+      : "aria-hidden=\"true\"";
+
+    return `
+      <circle
+        class="donut-segment ${selected ? "is-selected" : ""}"
+        cx="50"
+        cy="50"
+        r="43"
+        pathLength="100"
+        fill="none"
+        stroke="${slice.color}"
+        stroke-width="14"
+        stroke-dasharray="${slice.percentage.toFixed(4)} ${(100 - slice.percentage).toFixed(4)}"
+        stroke-dashoffset="${(-slice.startPercentage).toFixed(4)}"
+        transform="rotate(-90 50 50)"
+        ${attributes}
+      ></circle>
+    `;
+  }).join("");
+
+  return `
+    <svg class="donut-svg" viewBox="0 0 100 100" aria-hidden="${interactive ? "false" : "true"}">
+      <circle class="donut-track" cx="50" cy="50" r="43" pathLength="100" fill="none" stroke-width="14"></circle>
+      ${circles}
+    </svg>
+  `;
+}
+
 function renderEmpty(title, text) {
+  visibleVideos = [];
+  visibleCompanyReports = [];
+  selectedCompanyKey = null;
+  selectedVideoId = null;
+  closeReportInspector();
   emptyTitle.textContent = title;
   emptyText.textContent = text;
   dashboardElement.classList.add("hidden");
@@ -586,7 +1031,10 @@ function normalizeIdentity(value) {
 }
 
 function formatDate(value) {
-  const date = new Date(value);
+  const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))
+    ? `${value}T12:00:00`
+    : value;
+  const date = new Date(normalizedValue);
 
   if (Number.isNaN(date.getTime())) {
     return "ohne Datum";
