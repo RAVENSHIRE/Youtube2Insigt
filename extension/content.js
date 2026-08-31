@@ -51,6 +51,15 @@ chrome.runtime.onMessage.addListener(
         ?.trim() ||
       null;
 
+    const publishedAt =
+      document
+        .querySelector('meta[itemprop="datePublished"]')
+        ?.getAttribute("content") ||
+      document
+        .querySelector('meta[itemprop="uploadDate"]')
+        ?.getAttribute("content") ||
+      null;
+
     const channelUrl = channelLink?.href || null;
     const channelAvatarUrl =
       channelAvatar?.currentSrc ||
@@ -61,6 +70,7 @@ chrome.runtime.onMessage.addListener(
       title: title || null,
       creator,
       url: window.location.href,
+      publishedAt,
       channelUrl,
       channelAvatarUrl,
       subscriberCount
