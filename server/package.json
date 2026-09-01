@@ -4,7 +4,9 @@
   "description": "Transcribe YT videos to Investment Ideas",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js",
+    "migrate:creators:dry-run": "node scripts/migrate-creators.js --dry-run",
+    "snapshot:dry-run": "node scripts/market-snapshot-dry-run.js --dry-run"
   },
   "repository": {
     "type": "git",

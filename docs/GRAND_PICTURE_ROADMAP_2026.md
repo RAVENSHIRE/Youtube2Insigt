@@ -2,9 +2,33 @@
 
 ## Produktvision, Roadmap und Kommerzialisierung bis Dezember 2026
 
-**Status:** Arbeitsgrundlage  
-**Zieltermin:** 31. Dezember 2026  
+**Status:** Produkt- und Ausführungsplan, aktualisiert am 1. September 2026<br>
+**Zieltermin:** 31. Dezember 2026<br>
 **Referenzvideo:** [Business with Brian – 141 Videos, 21 Channels, 5 Companies](https://www.youtube.com/watch?v=4u8dR2Dxcdc)
+
+## Aktueller Umsetzungsstand
+
+**Verifizierter Teststand:** `feature/panel-unified-v1`<br>
+**Backend:** Analysis Version 6, Creator Storage v2, Market Snapshot Schema v1<br>
+**Testabdeckung:** 33 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
+**Aktueller Datensatz:** 3 Creator und 10 analysierte Videos im isolierten Creator-Staging
+
+| Bereich | Status | Ergebnis / nächster Nachweis |
+|---|---|---|
+| Repository Recovery | Abgeschlossen | einzelnes Repo, PR #6 auf `main`, Analyse-Version 5 konsolidiert |
+| Creator Storage & Routing | Verifiziert | Daten pro Creator isoliert; Creator-Wechsel und Erkennung des aktuellen Tabs funktionieren |
+| Channel Overview | Verifiziert | Abonnenten, gesamte Videozahl und dynamischer Analysefortschritt |
+| Research Library | Verifiziert | vollständige Reports, klickbare Videos und Wiederverwendung bereits geöffneter YouTube-Tabs |
+| Report Mix v2 | Verifiziert | `Sector → Sub-Sector → Company`, Erwähnungen, Erstvorstellung und vollständiger Drill-down |
+| Report-UX | Verifiziert | kontrastreiche Bullish-/Neutral-/Bearish-Badges sowie vollständige Thesen, Ziele, Levels und Belege |
+| Market Snapshot Foundation | Implementiert | unveränderliches Schema, Repository, YouTube-Zeitstempel-Service, Marktdaten-Provider und API-Endpunkte |
+| Market Snapshot Live-Nachweis | Offen | einen realen Snapshot erfassen und denselben Request idempotent wiederholen |
+| Call Classification | Offen – P0 | Mention, View, Actionable Call und Targeted Call trennen |
+| Outcome Engine | Offen – P0 | Return, Peak Return, Drawdown und Benchmark Alpha berechnen |
+| Creator Track Record | Blockiert durch Outcomes | erst nach genügend fälligen, klassifizierten Calls bewerten |
+
+Der aktuelle Panel-Stand bleibt die stabile Produktbasis. Neue P0-Arbeit wird in
+separaten Feature-Branches entwickelt und erst nach lokalem Test übernommen.
 
 ## 1. Die Gelegenheit
 
@@ -24,15 +48,22 @@ SignalTube ist ein Research- und Dokumentationsprodukt, keine Anlageberatung.
 
 ## 2. Das Grand Picture
 
-Das fertige Produkt besteht aus sieben verbundenen Ebenen:
+Das fertige Produkt besteht aus acht verbundenen Ebenen:
 
 1. **Capture Layer** – Videos, Transkripte, Bildschirm-/Chart-Szenen und Metadaten erfassen.
 2. **Evidence Layer** – jede Behauptung mit Timestamp, Zitatkontext und sichtbarem Chart verknüpfen.
 3. **Phenomenal Report** – These, Ziel, Risiko, Zeithorizont, Catalyst, Invalidation und Disclosure strukturiert darstellen.
 4. **Report Mix** – Unternehmen, Creator, Sentiment, Zeit und Themenexposure aggregieren.
 5. **Watchlist & Ladder** – objektive Preisbänder und Thesis-Trigger überwachen.
-6. **Creator Universe** – Creator transparent, fair und backtestbar vergleichen.
-7. **Commercial Layer** – Website, Creator-Dashboard, Embeds, Exporte, API und White-Label-Produkte verkaufen.
+6. **Outcome Engine** – Calls mit damaligem Preis, aktuellem Ergebnis, Drawdown und Benchmark verknüpfen.
+7. **Creator Universe** – Creator transparent, fair und backtestbar vergleichen.
+8. **Commercial Layer** – Website, Creator-Dashboard, Embeds, Exporte, API und White-Label-Produkte verkaufen.
+
+Der langfristige Burggraben ist nicht nur die AI-Extraktion, sondern der
+historische Datensatz: *Wer sagte wann, mit welcher These und bei welchem Preis
+was über welches Unternehmen – und was geschah danach?* Jeder unveränderliche
+Call erweitert diesen Datenbestand und macht Report Mix, Konsens, Belief Changes,
+Outcomes und Creator Track Records wertvoller.
 
 ## 3. Zielgruppen und Nutzenversprechen
 
@@ -129,7 +160,75 @@ Der Report Mix wird kanalbezogen und global verfügbar:
 
 Der zentrale Wert ist nicht die Zahl der Erwähnungen, sondern die nachvollziehbare Entwicklung eines Calls über Zeit.
 
-### 4.4 Watchlist Layer
+### 4.4 Market Snapshot, Call Classification und Outcome
+
+Der Report Mix beantwortet heute: **„Welche Unternehmen behandelt dieser
+Creator?“** Die nächste Produktstufe beantwortet: **„Was geschah nach einem
+wirklich handelbaren Call?“**
+
+#### Call-Klassifizierung
+
+| Call-Typ | Bedeutung | Performance-Tracking |
+|---|---|---|
+| Mention | Unternehmen wird nur erwähnt | nein |
+| View | Bullish-, Neutral- oder Bearish-Ansicht ohne Handlung | nein |
+| Actionable Call | explizites Buy, Add, Hold, Reduce oder Sell | ja |
+| Targeted Call | Handlung plus Kursziel und Zeithorizont | ja, inklusive Zielstatus |
+
+Eine Erwähnung darf niemals rückwirkend wie eine Kaufempfehlung bewertet werden.
+Im UI wird deshalb immer Call-Typ, Stichprobe und Datenqualität gezeigt.
+
+#### Unveränderlicher Market Snapshot
+
+Jeder geeignete Call referenziert den exakten YouTube-Veröffentlichungszeitpunkt
+und die erste verlässlich handelbare Marktperiode danach:
+
+```text
+MarketSnapshot
+  snapshot_id
+  ticker / asset_id
+  published_at
+  market_timestamp
+  price_at_video
+  currency
+  exchange
+  source
+  selection_policy
+  integrity_hash
+```
+
+Der ursprüngliche Snapshot wird nie aktualisiert. Aktuelle Kurse und daraus
+berechnete Resultate gehören in versionierte Outcome-Datensätze.
+
+#### Outcome Engine
+
+Die erste Version berechnet für Actionable und Targeted Calls:
+
+- aktuelle hypothetische Rendite seit Call;
+- Peak Return und Zeitpunkt des Hochs;
+- Maximum Drawdown seit Call;
+- Benchmark Return und Alpha in Prozentpunkten;
+- Kurszielstatus und Zeit bis zur Zielerreichung;
+- standardisierte Fenster von 30, 90, 180 und 365 Tagen.
+
+Die Darstellung lautet bewusst **„Hypothetical performance since call“** und
+nicht „Gewinn“, solange Gebühren, FX, Dividenden, Slippage und individuelle
+Ausführung nicht vollständig modelliert sind.
+
+#### Report-Mix-Integration
+
+Jede geeignete Company Card erhält anschließend:
+
+```text
+NVDA  |  Actionable Call
+$142.30 → $181.70  |  +27.7 %
+First call: 4 Mar 2026  |  Alpha: +16.0 pp
+```
+
+Der Klick öffnet später `Price vs. Creator Calls`: Kursverlauf, ursprünglicher
+Call, Updates, Ziele, Invalidation und Outcomes auf einer gemeinsamen Timeline.
+
+### 4.5 Watchlist Layer
 
 Jeder Nutzer oder Creator kann Unternehmen aus Reports auf eine Watchlist übernehmen.
 
@@ -154,7 +253,7 @@ Eine Watchlist-Zeile enthält:
 - neue Gegenmeinung erscheint;
 - Watchlist überschreitet ein Konzentrationslimit.
 
-### 4.5 LADDER
+### 4.6 LADDER
 
 Brian verwendet eine wertbasierte Entry-Ladder: Je tiefer der Preis relativ zum Fair Value fällt, desto anders wird die Positionsgröße; der billigste Bereich ist kein automatischer Kauf, sondern kann bedeuten, dass das Unternehmen fundamental gebrochen ist. Die genauen Bandnamen und Schwellen aus Brians Darstellung müssen vor einer kommerziellen Nachbildung mit ihm validiert werden.
 
@@ -250,13 +349,14 @@ Zusätzliche Tabellenblätter:
 | Creator | Kanal-ID, Name, URL, Disclosure-Profil |
 | Video | Video-ID, Creator-ID, Veröffentlichungszeit, Analyseversion |
 | Evidence | Start-/Endsekunde, Transcript, Frame, OCR, Konfidenz |
-| Company | normalisierte ID, Ticker, Asset-Typ, Themencluster |
-| Report | Video-ID, Company-ID, These, Sentiment, Handlung, Horizont |
+| Company | normalisierte ID, Ticker, Asset-Typ, Sektor, Sub-Sektor, Themencluster |
+| Report | Video-ID, Company-ID, These, Sentiment, Handlung, Horizont, Evidence |
+| Call | Call-Typ, Originalzeitpunkt, Report-ID, Status, Klassifizierungsgrund |
 | Target | Wert, Währung, Quelle, Fälligkeit, Status |
 | Ladder | Fair Value, Methode, Version, Banddefinitionen |
 | Call Version | ursprünglicher Call, Änderung, Korrektur, Schließung |
-| Market Snapshot | Zeitpunkt, Preis, Benchmark, Corporate Actions |
-| Outcome | Auswertungsfenster, Rendite, Alpha, Drawdown, Zielstatus |
+| Market Snapshot | exakter Zeitpunkt, Preis, Währung, Börse, Quelle, Auswahlregel, Integrität |
+| Outcome | Bewertungszeitpunkt, Fenster, Current/Peak Return, Alpha, Drawdown, Zielstatus |
 | Creator Score | Methoden-Version, Stichprobe, Komponenten, Tier |
 | Watchlist Item | Nutzer, Company, Trigger, aktive Stufe, Alerts |
 
@@ -342,39 +442,74 @@ Das Ranking folgt erst, wenn Vertrauen, Datenqualität und Methodik bewiesen sin
 
 ## 10. Roadmap September–Dezember 2026
 
+### P0 – Investment Outcome Engine (sofort)
+
+| Reihenfolge | Arbeitspaket | Status am 1. September 2026 |
+|---:|---|---|
+| 1 | Market Snapshot Foundation | implementiert und automatisiert getestet; Live-Nachweis offen |
+| 2 | Call Classification | nächster Feature-Branch |
+| 3 | Outcome Engine | offen; baut auf 1 und 2 auf |
+| 4 | Report-Mix Performance Cards | offen; erster sichtbarer Outcome-Nutzen |
+| 5 | Best/Worst Calls und Call Timeline | offen |
+| 6 | Creator Track Record | offen; benötigt ausreichende fällige Stichprobe |
+| 7 | Evidence-Timestamps und Visual Evidence | offen |
+| 8 | Watchlist, LADDER und TradingView | offen |
+
+Performance wird nur für `actionable` und `targeted` Calls berechnet. Mention
+und View bleiben sichtbar, werden aber nicht als hypothetischer Trade gewertet.
+Market Snapshots bleiben unveränderlich; zeitabhängige Outcomes werden separat
+und mit Bewertungszeitpunkt, Methodenversion und Datenquelle gespeichert.
+
 ### September – belastbare Grundlage
 
-- [ ] Interaktive Dashboard-Version mergen und stabilisieren.
-- [ ] Report-Schema v5 mit Evidence, Disclosure, Catalyst und Invalidation definieren.
-- [ ] Veröffentlichungszeit und Transcript-Timestamps verlustfrei speichern.
+- [x] Repository konsolidieren und Recovery-Stand über PR #6 sichern.
+- [x] Creator Storage v2, Creator Overview und aktiven YouTube-Tab integrieren.
+- [x] Channel Overview mit Gesamtvideos und dynamischem Analysefortschritt umsetzen.
+- [x] Report Mix als `Sector → Sub-Sector → Company` mit vollständigem Drill-down umsetzen.
+- [x] Research Library, Smart Tabs, Kontrast und Sentiment-Badges verifizieren.
+- [x] unveränderliches Market-Snapshot-Schema, Repository und Provider-Services implementieren.
+- [ ] einen realen Snapshot erfassen und Idempotenz mit identischer Snapshot-ID bestätigen.
+- [ ] Report-Schema v7 mit `call_type`, Catalyst, Invalidation, Disclosure und Evidence definieren.
+- [ ] Call Classification für Mention, View, Actionable und Targeted implementieren.
+- [ ] Outcome Engine für Current Return, Peak Return, Drawdown und Benchmark Alpha implementieren.
+- [ ] Report-Mix-Performance-Card „Since Call“ integrieren.
+- [ ] Veröffentlichungszeit und Transcript-Timestamps verlustfrei gemeinsam speichern.
 - [ ] Golden Set mit 200 manuell gelabelten Unternehmens-Calls aufbauen.
 - [ ] Report-Evaluationen statt blindem Fine-Tuning einführen.
 - [ ] Brians Video vollständig als Referenzdatensatz modellieren.
 - [ ] Landingpage-Wireframe und Creator-Pitch erstellen.
 - [ ] rechtliche Prüfung: Disclaimer, Ranking, Copyright, Datenschutz und Plattformbedingungen.
 
-**Exit-Kriterium September:** Ein Video erzeugt reproduzierbar einen vollständigen Report mit Evidence-Timestamps; Fehler sind messbar.
+**Exit-Kriterium September:** Ein Actionable Call besitzt einen exakten,
+unveränderlichen Einstiegssnapshot und ein reproduzierbares Outcome; Report Mix
+zeigt die hypothetische Performance, ohne Mentions als Calls umzudeuten.
 
-### Oktober – Watchlist und LADDER MVP
+### Oktober – Track Record, Evidence und LADDER MVP
 
+- [ ] beste und schlechteste Calls für 30/90/180/365 Tage anzeigen.
+- [ ] Call Timeline mit Original, Update, Ziel, Invalidation und Outcome bauen.
+- [ ] privaten Creator Track Record mit Stichprobe und Datenkonfidenz berechnen.
+- [ ] Transcript-Timestamps als vertikalen Evidence-Slice integrieren.
 - [ ] Chart-/Slide-Erkennung und OCR-Prototyp integrieren.
 - [ ] Watchlist mit Preis, Ziel, Invalidation und Alerts bauen.
 - [ ] konfigurierbare Ladder-Bänder mit Versionshistorie umsetzen.
-- [ ] kanalbezogenen und globalen Report Mix ergänzen.
+- [ ] globalen Report Mix und Creator-Konsens ergänzen.
 - [ ] Cluster-/Konzentrationswarnung entwickeln.
 - [ ] fünf Creator als private Design Partner gewinnen.
 - [ ] mindestens 300 Videos verarbeiten und QA-Stichprobe durchführen.
 
-**Exit-Kriterium Oktober:** Nutzer springt aus Report und Watchlist direkt zur belegenden Video-Sekunde; Ladder-Änderungen sind auditierbar.
+**Exit-Kriterium Oktober:** Nutzer sieht belegte Call-Historie, Outcome und Risiko
+auf einer Timeline und springt direkt zur relevanten Video-Sekunde.
 
 ### November – Creator Universe und Beta
 
-- [ ] Market Snapshots und Backtest-Worker einführen.
+- [ ] Backtest-Worker und Corporate-Action-/FX-Normalisierung produktionsreif machen.
 - [ ] Scorecard v1 mit Methodology-Version implementieren.
 - [ ] Unrated-/Minimum-Sample-Regeln und Konfidenzintervalle anzeigen.
 - [ ] Creator-Korrektur- und Einspruchsprozess bauen.
 - [ ] CSV-/Excel-Export veröffentlichen.
 - [ ] Website mit Company- und Creator-Seiten als private Beta starten.
+- [ ] TradingView-Prototyp für technische Evidence testen.
 - [ ] drei Preisvarianten mit Design Partnern testen.
 
 **Exit-Kriterium November:** Mindestens zwei Creator akzeptieren die Darstellung ihrer Calls und Methodik; Outcomes sind reproduzierbar.
@@ -500,16 +635,16 @@ Vorbereitung:
 
 ## 15. Die nächsten 30 Tage
 
-1. PR #4 mergen und einen stabilen Release-Stand markieren.
-2. Brians Video als Golden-Set-Fall vollständig annotieren.
-3. Report-Schema v5 und Evidence-Objekt implementieren.
-4. automatische Transcript-Timestamps als vertikalen Slice fertigstellen.
-5. klickbare Ladder für ein Unternehmen prototypisieren.
-6. Grand-Picture-Seite für die fünf Unternehmen aus dem Referenzvideo bauen.
-7. Creator-Pitch mit einem 90-Sekunden-Demo-Flow aufnehmen.
-8. Brian und vier weitere Creator mit personalisierten privaten Beispielen ansprechen.
-9. jedes Feedback als Hypothese, Entscheidung und Änderung dokumentieren.
-10. nur Funktionen priorisieren, die Qualität, Nutzungsfrequenz oder Zahlungsbereitschaft messbar verbessern.
+1. verifizierten Stand `feature/panel-unified-v1` sichern, PR prüfen und einen Release-Kandidaten markieren.
+2. einen realen Market Snapshot erfassen und den identischen Request idempotent validieren.
+3. `feature/call-classification` mit Mention/View/Actionable/Targeted und Migrationstest bauen.
+4. `feature/outcome-engine` für Current Return, Peak Return, Max Drawdown und Benchmark Alpha bauen.
+5. „Since Call“ als erste Performance Card in den bestehenden Report-Mix-Drill-down integrieren.
+6. Brians Video als Golden-Set-Fall inklusive Call-Typen, Ziele und Horizonte annotieren.
+7. Report-Schema v7 mit Catalyst, Invalidation, Disclosure und Evidence spezifizieren.
+8. automatische Transcript-Timestamps als nächsten vertikalen Evidence-Slice umsetzen.
+9. Grand-Picture-Demo und 90-Sekunden-Creator-Pitch für Brian und vier Design Partner erstellen.
+10. Kosten, Datenqualität und Zeitersparnis pro Video messen; nur anhand dieser Ergebnisse skalieren.
 
 ## 16. Offene Entscheidungen
 
@@ -517,7 +652,11 @@ Vorbereitung:
 - Soll das Creator Universe anfangs privat, opt-in oder vollständig öffentlich sein?
 - Ist der erste Käufer der Creator, der Zuschauer oder ein Netzwerk?
 - Welche Marktdatenquelle deckt Preise, Splits, Dividenden und Benchmarks rechtssicher ab?
+- Welche Börsen-/Symbolauflösung verhindert falsche Zuordnungen bei identischen Tickern?
+- Welche Benchmark gilt pro Asset, Region und Währung?
+- Wie werden Pre-/After-Market-Calls sowie Wochenenden konsistent bewertet?
 - Wie viele manuell geprüfte Calls sind nötig, bevor ein Report veröffentlicht werden darf?
+- Welche Verben und Evidenzschwellen machen eine Aussage wirklich `actionable`?
 - Welche Evidence darf angezeigt, gespeichert und exportiert werden?
 - Werden Ladder-Level vom Creator übernommen, vom System berechnet oder klar getrennt nebeneinander gezeigt?
 - Welche Outcome-Metrik korreliert am stärksten mit Zahlungsbereitschaft?
@@ -531,4 +670,3 @@ Vorbereitung:
 5. **Context beats count.** Fünf Unternehmen können derselbe Trade sein.
 6. **Creator first, ranking second.** Erst Nutzen und Vertrauen, dann Vergleich.
 7. **Quality before scale.** Fünf verlässliche Kanäle sind wertvoller als tausend unkontrollierte.
-

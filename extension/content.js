@@ -14,7 +14,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         publishedAt: null,
         channelUrl: null,
         channelAvatarUrl: null,
-        subscriberCount: null
+        subscriberCount: null,
+        channelTotalVideos: null,
+        channelId: null,
+        channelHandle: null
       });
     });
 
@@ -74,6 +77,17 @@ async function extractVideoMetadata() {
       ?.trim() ||
     null;
 
+  const channelUrl = channelLink?.href || null;
+  const channelId =
+    document
+      .querySelector('meta[itemprop="channelId"]')
+      ?.getAttribute("content") ||
+    document
+      .querySelector('link[itemprop="url"][href*="/channel/"]')
+      ?.getAttribute("href")
+      ?.match(/\/channel\/([^/?#]+)/u)?.[1] ||
+    null;
+  const channelHandle = getChannelHandle(channelUrl);
   const publishedAt =
     document
       .querySelector('meta[itemprop="datePublished"]')
@@ -88,11 +102,25 @@ async function extractVideoMetadata() {
     creator,
     url: window.location.href,
     publishedAt,
-    channelUrl: channelLink?.href || null,
+    channelUrl,
     channelAvatarUrl:
       getBestAvatarUrl(channelAvatar) || getAvatarFromInitialData(),
-    subscriberCount
+    subscriberCount,
+    channelTotalVideos: null,
+    channelId,
+    channelHandle
   };
+}
+
+function getChannelHandle(channelUrl) {
+  try {
+    const firstSegment = new URL(channelUrl).pathname
+      .split("/")
+      .filter(Boolean)[0];
+    return firstSegment?.startsWith("@") ? firstSegment : null;
+  } catch {
+    return null;
+  }
 }
 
 function waitForChannelAvatar(timeout = 4000) {

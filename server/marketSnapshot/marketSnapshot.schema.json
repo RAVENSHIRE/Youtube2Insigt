@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://signaltube.local/schemas/market-snapshot-v1.json",
+  "title": "SignalTube Immutable Market Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "video_id",
+    "call_id",
+    "ticker",
+    "published_at",
+    "market_snapshot"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^ms_[a-f0-9]{24}$"
+    },
+    "video_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{11}$"
+    },
+    "call_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "ticker": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "market_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "price_at_video",
+        "timestamp",
+        "captured_at",
+        "currency",
+        "exchange",
+        "symbol",
+        "price_field",
+        "bar_interval",
+        "session",
+        "adjustment",
+        "selection_policy",
+        "publication_lag_seconds",
+        "data_source",
+        "quality",
+        "integrity_sha256"
+      ],
+      "properties": {
+        "price_at_video": { "type": "number", "exclusiveMinimum": 0 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "currency": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "exchange": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "symbol": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "price_field": { "const": "open" },
+        "bar_interval": {
+          "type": "string",
+          "enum": ["1min", "5min", "15min", "30min", "1h"]
+        },
+        "session": {
+          "type": "string",
+          "enum": ["regular", "continuous"]
+        },
+        "adjustment": {
+          "type": "string",
+          "enum": ["split_adjusted", "unadjusted", "provider_default"]
+        },
+        "selection_policy": {
+          "const": "first_tradable_bar_at_or_after_publication"
+        },
+        "publication_lag_seconds": { "type": "integer", "minimum": 0 },
+        "data_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "endpoint"],
+          "properties": {
+            "provider": { "type": "string", "minLength": 1 },
+            "endpoint": { "type": "string", "minLength": 1 }
+          }
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["precision", "fallback"],
+          "properties": {
+            "precision": {
+              "type": "string",
+              "enum": ["intraday_1m", "intraday_5m", "intraday_15m", "intraday_30m", "intraday_1h"]
+            },
+            "fallback": { "type": ["string", "null"] }
+          }
+        },
+        "integrity_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}
