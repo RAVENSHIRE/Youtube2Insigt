@@ -6,10 +6,12 @@
       "creator": "DER AKTIONÄR TV",
       "url": "https://www.youtube.com/watch?v=bgSHTyHHERc&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi",
       "analyzed_at": "2026-08-24T00:55:10.579Z",
+      "published_at": "2026-08-21T06:27:07-07:00",
       "channel": {
         "name": "DER AKTIONÄR TV",
         "url": "https://www.youtube.com/@der.aktionaer",
         "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj",
+        "subscriber_count": "701.000 Abonnenten",
         "updated_at": "2026-08-31T00:00:00.000Z"
       }
     },
@@ -201,8 +203,9 @@
       "id": "IC2q3F2KxCI",
       "title": "Opening Bell: Bitcoin, Ethereum, S&P 500, Moderna, Alibaba, Walmart, Axon Enterprise, IBM, SpaceX",
       "creator": "DER AKTIONÄR TV",
-      "url": "https://www.youtube.com/watch?v=IC2q3F2KxCI&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=2",
+      "url": "https://www.youtube.com/watch?v=IC2q3F2KxCI&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=3",
       "analyzed_at": "2026-08-24T00:55:34.891Z",
+      "published_at": "2026-08-20T06:17:04-07:00",
       "channel": {
         "name": "DER AKTIONÄR TV",
         "url": "https://www.youtube.com/@der.aktionaer",
@@ -328,13 +331,15 @@
       "id": "m3NcIR5JApE",
       "title": "Opening Bell: AMD, Broadcom, LAM Research, T-Mobile US, First Solar",
       "creator": "DER AKTIONÄR TV",
-      "url": "https://www.youtube.com/watch?v=m3NcIR5JApE&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=32",
+      "url": "https://www.youtube.com/watch?v=m3NcIR5JApE&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=33",
       "analyzed_at": "2026-08-24T20:57:12.039Z",
+      "published_at": "2026-07-06T05:56:05-07:00",
       "channel": {
         "name": "DER AKTIONÄR TV",
         "url": "https://www.youtube.com/@der.aktionaer",
-        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj",
-        "updated_at": "2026-08-31T00:00:00.000Z"
+        "subscriber_count": "701.000 Abonnenten",
+        "updated_at": "2026-08-31T00:00:00.000Z",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s176-c-k-c0x00ffffff-no-rj"
       }
     },
     "companies": [
@@ -476,7 +481,7 @@
     "video": {
       "id": "HEEO005FvLE",
       "title": "Opening Bell",
-      "creator": "DER AKTIONÄR TV",
+      "creator": "DER AKTION�R TV",
       "url": "https://www.youtube.com/watch?v=HEEO005FvLE",
       "analyzed_at": "2026-08-26T07:38:12.899Z",
       "channel": {
@@ -698,6 +703,872 @@
         "action": "buy",
         "levels": [],
         "evidence": "Sea Limited zuletzt die Aktie ordentlich gelaufen. Das waren auch die Q2 Zahlen, die zeigen, es läuft wirklich wieder gut ... bietet die Chance meiner Meinung nach da wirklich in in der super Turnaround Geschichte reinzukommen. ... kann man zugreifen."
+      }
+    ]
+  },
+  "4u8dR2Dxcdc": {
+    "analysis_version": 4,
+    "analysis_models": [
+      "gemini-3.5-flash"
+    ],
+    "video": {
+      "id": "4u8dR2Dxcdc",
+      "title": "21 YouTuber sind sich bei 5 Aktien einig. Meine Einstiegspunkte",
+      "creator": "BWB - Business With Brian",
+      "url": "https://www.youtube.com/watch?v=4u8dR2Dxcdc",
+      "published_at": "2026-08-31T05:59:52-07:00",
+      "analyzed_at": "2026-08-31T14:18:49.881Z",
+      "channel": {
+        "name": "BWB - Business With Brian",
+        "url": "https://www.youtube.com/@BusinessWithBrian",
+        "subscriber_count": "431.000 Abonnenten",
+        "updated_at": "2026-08-31T14:53:52.766Z"
+      }
+    },
+    "summary": "Der Creator analysiert die am haeufigsten von Finanz-YouTubern diskutierten Aktien und vergleicht diese mit seinen eigenen Einstiegsmarken. Mithilfe eines systematischen Fair-Value-Stufenmodells versucht er, Emotionen aus dem Investmentprozess fuer Werte wie Alphabet, Nvidia und Uber zu eliminieren. Er warnt vor einer zu starken Fokussierung auf den Tech- und KI-Sektor, da viele der besprochenen Aktien faktisch auf dieselbe Marktwette abzielen.",
+    "companies": [
+      {
+        "company": "Alphabet",
+        "ticker": "GOOGL",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Alphabet hat historisch betrachtet eine sehr guenstige Bewertung basierend auf Gewinnen, erscheint jedoch teurer auf Umsatzbasis. Das Unternehmen behaelt deutlich mehr von jedem umgesetzten Dollar als in der Vergangenheit.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 410,
+            "currency": "USD",
+            "source": "Park",
+            "context": "by the end of 2027"
+          },
+          {
+            "value": 450,
+            "currency": "USD",
+            "source": "Park",
+            "context": "by the end of 2027"
+          },
+          {
+            "value": 354,
+            "currency": "USD",
+            "source": "Daniel Prank",
+            "context": "fair value"
+          }
+        ],
+        "time_horizon": "long-term",
+        "action": "buy",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 362,
+            "currency": "USD",
+            "context": "Price during recording"
+          },
+          {
+            "type": "reference",
+            "value": 49,
+            "currency": "USD",
+            "context": "May all-time high"
+          }
+        ],
+        "evidence": [
+          "This one's Alphabet Google around $362 as I record this, down about 14% from its May all-time high, near $49.",
+          "he sees $410 to $450 by the end of 2027.",
+          "on earnings, Alphabet has almost never been cheaper against itself in 10 years. But on sales, my my system puts it in the richest few% of those same 10 years."
+        ]
+      },
+      {
+        "company": "Microsoft",
+        "ticker": "MSFT",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Wird von einigen Investoren als ueberbewerteter Hyperscaler eingestuft und gegenueber Amazon und Meta vernachlaessigt.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "Google is selling quite a bit above its historical averages and does look like the most expensive hyperscaler in the market right now. And that is the reason why I am not buying Google or Microsoft"
+        ]
+      },
+      {
+        "company": "Amazon",
+        "ticker": "AMZN",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Wird von Daniel Prank als attraktivere Alternative zu anderen teuren Hyperscalern wie Google und Microsoft gekauft.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "And that is the reason why I am not buying Google or Microsoft and instead I am buying Amazon and Meta."
+        ]
+      },
+      {
+        "company": "Meta",
+        "ticker": "META",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Wird aufgrund einer vorteilhafteren Bewertung im Vergleich zu Google und Microsoft bevorzugt.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "And that is the reason why I am not buying Google or Microsoft and instead I am buying Amazon and Meta."
+        ]
+      },
+      {
+        "company": "Nvidia",
+        "ticker": "NVDA",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Nvidia ist im Vergleich zu seinen historischen Gewinnen sehr guenstig bewertet, allerdings weisen gestiegene Absicherungskosten fuer Schulden auf erhoehte Kreditrisiken hin.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 300,
+            "currency": "USD",
+            "source": "Park",
+            "context": "calculated fair value"
+          },
+          {
+            "value": 290,
+            "currency": "USD",
+            "source": "Creator",
+            "context": "Creator's fair value"
+          },
+          {
+            "value": 33,
+            "currency": "USD",
+            "source": "Analyst consensus",
+            "context": "analyst consensus"
+          }
+        ],
+        "time_horizon": null,
+        "action": "buy",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 221,
+            "currency": "USD",
+            "context": "price after today's increase"
+          },
+          {
+            "type": "stop_loss",
+            "value": 148,
+            "currency": "USD",
+            "context": "where it stops being cheap and starts being the proverbial falling knife"
+          }
+        ],
+        "evidence": [
+          "In fact, I calculated a fair value for Nvidia stock at $300 per share. And even after today's increase at 221, you can see it's considerably undervalued.",
+          "My own read lands at about $290. And the analyst consensus sits right on top of it at $33.",
+          "Nvidia sits in my buy full band and I want to be very clear about what that does and does not mean"
+        ]
+      },
+      {
+        "company": "Micron",
+        "ticker": "MU",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Die Kapazitaeten sind bis 2027 ausgebucht, allerdings birgt das zyklische Geschaeft das Risiko, dass ein niedriges KGV ein Zyklustop markiert. Aktie notiert unter dem 50-Tage-Durchschnitt.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 1450,
+            "currency": "USD",
+            "source": "Creator",
+            "context": "fair value based on creator's model"
+          }
+        ],
+        "time_horizon": null,
+        "action": "buy",
+        "levels": [
+          {
+            "type": "entry",
+            "value": 135,
+            "currency": "USD",
+            "context": "Ross Given breakout buy point"
+          },
+          {
+            "type": "entry",
+            "value": 275,
+            "currency": "USD",
+            "context": "Ross Given add point"
+          },
+          {
+            "type": "entry",
+            "value": 500,
+            "currency": "USD",
+            "context": "Ross Given add point"
+          },
+          {
+            "type": "stop_loss",
+            "value": 434,
+            "currency": "USD",
+            "context": "70% drawdown from fair value where creator exits"
+          },
+          {
+            "type": "reference",
+            "value": 961,
+            "currency": "USD",
+            "context": "50-day moving average"
+          }
+        ],
+        "evidence": [
+          "My model puts fair value near $1,450, which drops it into the deepest buy band on the whole ladder.",
+          "The trigger underneath all of it is the 50-day moving average at $961, which is just the average close over the last 50 trading days. Micron has slipped under it.",
+          "Be careful, though. Memory is a cyclical business. A cheap multiple at record earnings is exactly what a cycle top can look like."
+        ]
+      },
+      {
+        "company": "Coreweave",
+        "ticker": null,
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Das Unternehmen ist erst seit 17 Monaten an der Boerse, weshalb eine verlaessliche historische Bewertung unmoeglich ist. Die Abhaengigkeit von Nvidia birgt Risiken.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 113,
+            "currency": "USD",
+            "source": "Park",
+            "context": "fair value estimate"
+          }
+        ],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 104,
+            "currency": "USD",
+            "context": "current market price in the aftermarket hours"
+          }
+        ],
+        "evidence": [
+          "Nvidia agrees to rent back the capacity that Cororeweave can't rent to anybody else out till 2032",
+          "They had $113 fair value estimate according to my calculation and the current market price in the aftermarket hours is $104",
+          "standing on the side because I can't price it and standing aside is not the same thing as just holding."
+        ]
+      },
+      {
+        "company": "Uber",
+        "ticker": "UBER",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Uber wird aufgrund von Risiken rund um autonome Fahrzeuge guenstig bewertet, verzeichnet jedoch einen sehr starken freien Cashflow von rund 10 Milliarden USD.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 120,
+            "currency": "USD",
+            "source": "Park",
+            "context": "fair value estimate"
+          },
+          {
+            "value": 109,
+            "currency": "USD",
+            "source": "Creator",
+            "context": "Creator's valuation"
+          }
+        ],
+        "time_horizon": null,
+        "action": "buy",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 67,
+            "currency": "USD",
+            "context": "current market price after 7% drop"
+          }
+        ],
+        "evidence": [
+          "overall, I calculated a fair value of the business at $120 a share. The current market price after the 7% drop today is $67.",
+          "My own valuation comes back at $109 against his $120.",
+          "Uber also sits in the cheapest third of its own 10 years, and it throws off roughly $10 billion a year in free cash flow"
+        ]
+      }
+    ]
+  },
+  "Dqmr1E7yU4s": {
+    "analysis_version": 4,
+    "analysis_models": [
+      "gemini-3.5-flash"
+    ],
+    "video": {
+      "id": "Dqmr1E7yU4s",
+      "title": "Opening Bell: Palo Alto, Crowdstrike, Broadcom, Apple, ExxonMobil, The Trade Desk",
+      "creator": "DER AKTIONÄR TV",
+      "url": "https://www.youtube.com/watch?v=Dqmr1E7yU4s",
+      "published_at": "2026-08-31T05:59:52-07:00",
+      "analyzed_at": "2026-08-31T14:20:26.649Z",
+      "channel": {
+        "name": "DER AKTIONÄR TV",
+        "url": "https://www.youtube.com/@der.aktionaer",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s48-c-k-c0x00ffffff-no-rj",
+        "subscriber_count": "701.000 Abonnenten",
+        "updated_at": "2026-08-31T14:48:30.016Z"
+      }
+    },
+    "summary": "Der US-Markt verzeichnet zum Wochenauftakt leichte Verluste angesichts von Inflations- und Zinssorgen. Im Technologiesektor stehen Broadcom und Cybersecurity-Aktien wie Palo Alto und Crowdstrike mit starken Zahlen im Fokus, waehrend Apple vor einem Fuehrungswechsel steht. Geopolitische Spannungen treiben den Oelpreis und stuetzen Energieaktien wie ExxonMobil.",
+    "companies": [
+      {
+        "company": "Broadcom",
+        "ticker": "AVGO",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Broadcom steuert im laufenden Quartal auf Rekordumsaetze zu, getrieben durch ein massives Wachstum im Bereich der KI-Halbleiter. Erwartet wird ein Umsatz von ca. 29 Milliarden Dollar, wovon 16 Milliarden aus dem KI-Segment stammen sollen.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Das Unternehmen will im laufenden Quartal natuerlich wieder Rekordumsaetze einfahren.",
+          "mittlerweile 16 Milliarden sollten von KI Halbleiterseite kommen."
+        ]
+      },
+      {
+        "company": "Nio",
+        "ticker": "NIO",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Nio liefert Fahrzeuge mit hoher Verarbeitungsqualitaet und ansprechendem Design, steht jedoch wie die gesamte Branche unter massivem internationalen Konkurrenz- und Margendruck.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Neo morgen Vorhandelsbeginn. Duerfte interessant werden.",
+          "stehen wirklich alle momentan massiv unter Druck."
+        ]
+      },
+      {
+        "company": "Palo Alto Networks",
+        "ticker": "PANW",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Steigende Cyberangriffe und Schadsoftware treiben das Wachstum voran. Bei einem erfolgreichen Ausbruch ueber das alte Hoch koennte die Aktie zuegig deutlich ueber 400 USD notieren.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 400,
+            "currency": "USD",
+            "source": null,
+            "context": "deutlich hoeher als 400 $ notieren bei Breakout"
+          }
+        ],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [
+          {
+            "type": "resistance",
+            "value": 400,
+            "currency": "USD",
+            "context": "Altes Hoch"
+          }
+        ],
+        "evidence": [
+          "die Problematik mit der schnellsteigenden Zahl an Angriffen und Shartsoftware... sorgt dafuer, dass hier tatsaechlich die Geschaefte weiterbrummen duerften.",
+          "duerfte relativ schnell auch dieses alte hoch uebersprungen werden und duerfte die Aktie deutlich hoeher als 400 $ notieren."
+        ]
+      },
+      {
+        "company": "CrowdStrike",
+        "ticker": "CRWD",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Nach hervorragenden Quartalszahlen verzeichnete die Aktie einen massiven Kurssprung. Trotz kleinerer Gewinnmitnahmen bleibt das Vertrauen der Anleger in die Wachstumsstory ungebrochen.",
+        "mentioned_move_pct": 20,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Crowdstrike zuletzt, das war ja eben diese positive Nachricht... abgegangen wie Schmidskatze. 20% an einem Tag",
+          "Vertrauen in die Branche, in die Player Crowdstrike, Palo Alto, dass das natuerlich auch weiterhin... bleibt"
+        ]
+      },
+      {
+        "company": "Apple",
+        "ticker": "AAPL",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Nach dem operativen Rueckzug von Tim Cook steht Apple vor einem Fuehrungswechsel. Waehrend Cook ein Meister des Skalierens war, muss der Nachfolger nun bei Zukunftsthemen wie KI und Smartglasses Innovationen liefern.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Ich bin kein Fan von Apple der vergangenen paar Jahre...",
+          "Anschluss meiner Meinung nach ein bisschen verloren hat, wenn es um Innovation geht"
+        ]
+      },
+      {
+        "company": "ExxonMobil",
+        "ticker": "XOM",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Profitiert unmittelbar von steigenden Rohoelpreisen (WTI und Brent), die durch neue geopolitische Spannungen im Nahen Osten angetrieben werden.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Exon Mobile, auch die Aktie ist zuletzt ganz gut gelaufen...",
+          "WTI und Brand ist auf dem Weg nach oben und das bedeutet mehr Gewinn"
+        ]
+      },
+      {
+        "company": "The Trade Desk",
+        "ticker": "TTD",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Die Aktie hat nach extremen Verlusten von rund 90% ein hohes Rebound-Potenzial. Sorgen bereiten jedoch das verlangsamte Umsatzwachstum, der verschaerfte Wettbewerb durch Schwergewichte wie Amazon und Managementwechsel.",
+        "mentioned_move_pct": 90,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 150,
+            "currency": "USD",
+            "context": "Historischer Ausgangspunkt des Kurssturzes"
+          }
+        ],
+        "evidence": [
+          "die Aktie kommt nicht von 50, also die kommt auch nicht von 60, die kommt von 150. die hat 90% des Kurses verloren innerhalb relativ kurzer Zeit",
+          "wenn die sich bewegt... dann kann die natuerlich innerhalb kuerzester Zeit 40, 50, 80, 100% machen"
+        ]
+      },
+      {
+        "company": "Lululemon Athletica",
+        "ticker": "LULU",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Die Aktie geriet aufgrund einer zuvor zu hohen Bewertung unter Druck. Der Markt fuer Sportbekleidung ist hart umkaempft und die Bewertung korrigiert sich nun auf ein realistischeres Niveau fuer einen Bekleidungshersteller.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "jetzt sind die zuletzt unter Druck geraten und dann irgendwann war tatsaechlich mal eine neue Bewertung angebracht, weil sie halt einfach Yogaklamotten machen."
+        ]
+      },
+      {
+        "company": "Brown-Forman",
+        "ticker": "BF.B",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Der global sinkende Alkoholkonsum, insbesondere bei juengeren Generationen, belastet die Spirituosenbranche schwer und erhoeht den Konsolidierungsdruck, was wiederum Uebernahmegeruechte anheizt.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Das Problem in der Branche Spirituosen ist... die Leute trinken weniger.",
+          "Konsolidierungsdruck, wohin man schaut und deshalb auch durchaus hier mal Uebernahmegeruechte"
+        ]
+      }
+    ]
+  },
+  "QzRxievcmug": {
+    "analysis_version": 4,
+    "analysis_models": [
+      "gemini-3.5-flash"
+    ],
+    "video": {
+      "id": "QzRxievcmug",
+      "title": "Opening Bell: Intuit, Zoom, Kohl's, Nvidia, Salesforce; Crowdstrike, SolarEdge",
+      "creator": "DER AKTIONÄR TV",
+      "url": "https://www.youtube.com/watch?v=QzRxievcmug&list=PLpPymPOs_ReOVmFenODnNkkr9xZ79xuNi&index=7",
+      "published_at": "2026-08-26T09:22:01-07:00",
+      "analyzed_at": "2026-08-31T14:28:34.133Z",
+      "channel": {
+        "name": "DER AKTIONÄR TV",
+        "url": "https://www.youtube.com/@der.aktionaer",
+        "avatar_url": "https://yt3.ggpht.com/ytc/AIdro_nii5ME-DcS3pNo3_g4TKFi6kLMczxn8kECKvteRDZYWjs=s48-c-k-c0x00ffffff-no-rj",
+        "subscriber_count": "701.000 Abonnenten",
+        "updated_at": "2026-08-31T16:19:58.538Z"
+      }
+    },
+    "summary": "Die Finanzmärkte blicken mit großer Spannung auf die anstehenden Quartalszahlen von Nvidia, weshalb sich die US-Indizes und der DAX vorbörslich ruhig verhalten. Während Software- und Einzelhandelswerte wie Intuit, Zoom und Kohl's nach enttäuschenden Ausblicken Kursverluste verzeichnen, zeigen sich deutsche Bankaktien und europäische Stahlwerte robust. Berenberg und UBS sorgen mit ihren neuesten Analystenstudien für deutliche Einzelwertbewegungen bei Titeln wie E.on, SAP und SolarEdge.",
+    "companies": [
+      {
+        "company": "Nvidia",
+        "ticker": "NVDA",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Sehr hohe Erwartungshaltung vor den Quartalszahlen bei denen eine enorme Umsatzsteigerung prognostiziert wird. Für Investierte gilt es, den Stoppkurs gelassen zu beachten.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 268.5,
+            "currency": "USD",
+            "source": "DER AKTIONÄR",
+            "context": "Kursziel des Aktionärs für die Aktie"
+          }
+        ],
+        "time_horizon": null,
+        "action": "hold",
+        "levels": [
+          {
+            "type": "stop_loss",
+            "value": 157,
+            "currency": "USD",
+            "context": "Stoppkurs des Aktionärs für investierte Anleger"
+          }
+        ],
+        "evidence": [
+          "für diejenigen, die dabei, die investiert sind, heißt es da den Stoppkurs zu beachten, aber da haben wir noch jede Menge Platz nach unten. Der ist hier ungefähr bei 157$ platziert.",
+          "grundsätzlich haben wir ein Ziel von 268,50, also da haben wir hier auch noch bei jede Menge Platz nach oben."
+        ]
+      },
+      {
+        "company": "Deutsche Bank",
+        "ticker": "DBK",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Starke Performance an der DAX-Spitze mit dem höchsten Kursstand seit 2014; Händler bescheinigen der Aktie weiteres Nachholpotenzial.",
+        "mentioned_move_pct": 4,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "Deutsche Bank schon 4% im positiven Bereich. der höchste Stand seit 2014",
+          "hier sagen auch die Händler auf dem Paket, hier ist ordentlich Nachholpotenzial gegeben."
+        ]
+      },
+      {
+        "company": "Commerzbank",
+        "ticker": "CBK",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Wird von der starken Tendenz der Deutschen Bank mit nach oben gezogen, da Händler auch hier deutliches Nachholpotenzial sehen.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "dass die Kommerzbank ebenfalls mit nach oben gezogen wird.",
+          "hier sagen auch die Händler auf dem Paket, hier ist ordentlich Nachholpotenzial gegeben."
+        ]
+      },
+      {
+        "company": "E.ON",
+        "ticker": "EOAN",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Die Privatbank Berenberg bewertet das Unternehmen in einer neuen Studie positiv und sieht Kursrücksetzer als attraktive Einstiegsgelegenheiten.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "Eon profitiert von einem positiven Analystenkommentar der Privatbank Berenberg.",
+          "Man hält Kursrücksetzer jetzt für interessante Einstiegsmöglichkeiten."
+        ]
+      },
+      {
+        "company": "Qiagen",
+        "ticker": "QIA",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Gerüchte über Übernahmeverhandlungen mit Private-Equity-Gesellschaften zu einem potenziellen Preis von 50 USD pro Aktie stützen den Wert.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 50,
+            "currency": "USD",
+            "source": "Presseberichte",
+            "context": "Möglicher Übernahmepreis laut Berichten über Verkaufsgespräche"
+          }
+        ],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "Die Kiagen Aktien steigen ebenfalls. Hier sind es Berichte über Verkaufsgespräche mit Private Equity Gesellschaften und einem möglichen Preis von 50 US-Dollar pro Aktie."
+        ]
+      },
+      {
+        "company": "Salzgitter",
+        "ticker": "SZG",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Die europäische Stahlbranche profitiert von der aktuellen Flaute und den hohen Rohstoffpreisen der Konkurrenz in China.",
+        "mentioned_move_pct": 7,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "Bei Salzgitter haben wir sogar ein Plus von über 7%. Das liegt ja an der Flaute in China"
+        ]
+      },
+      {
+        "company": "SAP",
+        "ticker": "SAP",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Die Großbank UBS streicht ihre Kaufempfehlung und senkt das Kursziel deutlich, was die Aktie belastet.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 164,
+            "currency": "EUR",
+            "source": "UBS",
+            "context": "Neues gesenktes Kursziel der UBS"
+          }
+        ],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "Bei den Verlierern finden wir SAP wieder, denn die Schweizer Großbank UBS hat die Kaufempfehlung gestrichen und hat das Kurs hier gesenkt von 2011 € auf 164 €."
+        ]
+      },
+      {
+        "company": "Intuit",
+        "ticker": "INTU",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Ein enttäuschender Umsatzausblick für das kommende Geschäftsjahr und allgemeine Sorgen über den Einfluss von KI auf Softwarefirmen belasten den Kurs.",
+        "mentioned_move_pct": -9.4,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [
+          {
+            "type": "entry",
+            "value": 324,
+            "currency": "USD",
+            "context": "Erwartetes vorbörsliches Kursniveau im Zuge des Rücksetzers"
+          }
+        ],
+        "evidence": [
+          "Die Aktie wird 9,4 % im Minus erwartet.",
+          "Intuit ja, dadurch, dass es ein Software Konzern ist, gibt ein gibt's einfach die Sorgen, dass KI die Software auffrisst",
+          "für uns aktuell keine laufende Empfehlung, aber im Hinterkopf kann man so eine Aktie immer wieder mal haben"
+        ]
+      },
+      {
+        "company": "Zoom Video Communications",
+        "ticker": "ZM",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Trotz solider Q2-Zahlen enttäuscht der Ausblick auf das dritte Quartal; das Unternehmen bleibt langfristig ein Sorgenkind und ist kein Kauf.",
+        "mentioned_move_pct": -6,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 94.7,
+            "currency": "USD",
+            "context": "Erwarteter vorbörslicher Kurs nach den Zahlen"
+          }
+        ],
+        "evidence": [
+          "für uns auf alle Fälle Sum kein Kauf",
+          "dürfte die Aktie jetzt bei ungefähr 94,70 rauskommen.",
+          "zuletzt habe ich ein Minus gesehen von über 6%."
+        ]
+      },
+      {
+        "company": "Kohl's",
+        "ticker": "KSS",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Der auf den ersten Blick starke Gewinn resultiert nur aus einer einmaligen Zollrückerstattung, während der Umsatz schwächelt. Aktie rutscht unter 200-Tage-Linie.",
+        "mentioned_move_pct": -7,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "sell",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 16.4,
+            "currency": "USD",
+            "context": "Erwarteter vorbörslicher Kurs unter der 200-Tage-Linie"
+          }
+        ],
+        "evidence": [
+          "Also hier würden wir jetzt auch raten nicht einzusteigen. Ist auch keine laufende Empfehlung von uns.",
+          "Zuletzt hatte ich ein Plus Minus von über 7% bei der Aktie gesehen. Dürfte jetzt dann ungefähr bei 16 40 rauskommen."
+        ]
+      },
+      {
+        "company": "Walmart",
+        "ticker": "WMT",
+        "asset_type": "stock",
+        "sentiment": "bear",
+        "thesis": "Zuvor bevorzugter Wert im Einzelhandel, bei dem Anleger jedoch nach den enttäuschenden jüngsten Zahlen durch den Stoppkurs ausgestoppt wurden.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [],
+        "evidence": [
+          "Ursprünglich unser Favorit in dem Bereich war ja Walmart, aber da wurden wir durch die jüngsten Quartalszahlen dann im Endeffekt ausgestoppt."
+        ]
+      },
+      {
+        "company": "Salesforce",
+        "ticker": "CRM",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Technisch nähert sich die Aktie einem Kaufsignal an der 200-Tage-Linie. Es wird jedoch empfohlen, vor der Veröffentlichung der Zahlen heute Abend nicht einzusteigen.",
+        "mentioned_move_pct": -2,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "watch",
+        "levels": [],
+        "evidence": [
+          "unser Tipp vor den Zahlen nicht einsteigen, sondern erst ein mal abwarten.",
+          "Momentan ist keine laufende Empfehlung von uns, aber charttechnisch wie gesagt, wenn jetzt die Zahlen sich auch noch entsprechend entwickeln, dann könnte es durchaus interessant werden."
+        ]
+      },
+      {
+        "company": "CrowdStrike",
+        "ticker": "CRWD",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "Analysten sind grundsätzlich sehr optimistisch, doch die Bank of America warnt vor überhöhten Erwartungen. Der Aktionär favorisiert im Sektor Palo Alto.",
+        "mentioned_move_pct": null,
+        "price_targets": [
+          {
+            "value": 215.64,
+            "currency": "USD",
+            "source": "Analysten-Konsens",
+            "context": "Durchschnittliches Kursziel der Analysten"
+          },
+          {
+            "value": 230,
+            "currency": "USD",
+            "source": "Jefferies",
+            "context": "Erhöhtes Kursziel kurz vor den Quartalszahlen"
+          }
+        ],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 190,
+            "currency": "USD",
+            "context": "Vorheriges Kursziel von Jefferies"
+          }
+        ],
+        "evidence": [
+          "haben ein durchschnittliches Kursziel von 215,64. Trotzdem warnt auch die Bank of America vor hohen Erwartungen.",
+          "Jeffreis hat kurz vor den Zahlen mal die Studie aktualisiert, hat das Kursziel von 190 auf 230 US-Dollar angehoben."
+        ]
+      },
+      {
+        "company": "Palo Alto Networks",
+        "ticker": "PANW",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Der absolute Favorit des Aktionärs im Bereich Cyber-Security vor den anstehenden Zahlen in der nächsten Woche.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "buy",
+        "levels": [],
+        "evidence": [
+          "Wir vom Aktionär setzen da eher auf Palo Alto",
+          "unser Favorit ist Palo Alto. Palo Alto liefert dann in der nächsten Woche Zahlen und zwar am Dienstag ist es dann soweit."
+        ]
+      },
+      {
+        "company": "SolarEdge",
+        "ticker": "SEDG",
+        "asset_type": "stock",
+        "sentiment": "neutral",
+        "thesis": "UBS stuft die Aktie auf Kaufen hoch, da das Unternehmen von US-Importverboten für ausländische Wechselrichter profitieren könnte. Charttechnisch bleibt es jedoch schwierig.",
+        "mentioned_move_pct": 6,
+        "price_targets": [
+          {
+            "value": 42,
+            "currency": "USD",
+            "source": "UBS",
+            "context": "Neues erhöhtes Kursziel der UBS"
+          }
+        ],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 36,
+            "currency": "USD",
+            "context": "Altes Kursziel der UBS vor der Heraufstufung"
+          },
+          {
+            "type": "reference",
+            "value": 31.8,
+            "currency": "USD",
+            "context": "Erwarteter Kurs nach dem Analysten-Upgrade"
+          }
+        ],
+        "evidence": [
+          "haben ihr Kursziel mal deutlich nach oben korrigiert, haben von neutral auf BYU hochgestuft die Aktie und das Kursziel von 36 auf 42 US-Dollar angehoben.",
+          "Solar Edge ist nicht auf unserer Empfehlungsliste. Im Solarbereich bevorzugen wir SMA Solar"
+        ]
+      },
+      {
+        "company": "SMA Solar Technology",
+        "ticker": "S92",
+        "asset_type": "stock",
+        "sentiment": "bull",
+        "thesis": "Überzeugte mit guten Zahlen und einer angehobenen Jahresprognose. Die Aktie bleibt der bevorzugte Favorit im Solarbereich.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "buy",
+        "levels": [],
+        "evidence": [
+          "SMA habe ich jetzt nicht näher dabei, aber da kann ich sagen, dass die Zahlen recht gut waren. Jahresprognose angehoben",
+          "Im Solarbereich bevorzugen wir SMA Solar"
+        ]
+      },
+      {
+        "company": "WTI-Öl",
+        "ticker": null,
+        "asset_type": "commodity",
+        "sentiment": "neutral",
+        "thesis": "Die Ölpreise tendieren leicht schwächer und konsolidieren im Bereich um die 80-Dollar-Marke.",
+        "mentioned_move_pct": null,
+        "price_targets": [],
+        "time_horizon": null,
+        "action": "none",
+        "levels": [
+          {
+            "type": "reference",
+            "value": 80,
+            "currency": "USD",
+            "context": "Aktueller WTI Rohölpreis"
+          }
+        ],
+        "evidence": [
+          "dass die Ölpreise bisschen zurückkommen. Brand WTI ist jetzt gerade bei 80$"
+        ]
       }
     ]
   }
