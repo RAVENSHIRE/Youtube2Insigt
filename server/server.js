@@ -7,12 +7,12 @@ const { YoutubeTranscript } = require("youtube-transcript");
 const { GoogleGenAI } = require("@google/genai");
 const { getQuote } = require("./marketData");
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const PORT = Number(process.env.PORT) || 3000;
 const GEMINI_MODEL = "gemini-3.5-flash";
 
-const ANALYSIS_VERSION = 4;
+const ANALYSIS_VERSION = 5;
 
 const DATA_DIR = path.join(__dirname, "data");
 const VIDEO_FILE = path.join(DATA_DIR, "videos.json");
