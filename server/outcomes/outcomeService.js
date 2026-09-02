@@ -1,6 +1,7 @@
 const OUTCOME_METHOD_VERSION = 1;
 const DEFAULT_BENCHMARK = "SPY";
-const DEFAULT_CACHE_TTL_MS = 60_000;
+const DEFAULT_CACHE_TTL_MS = 5 * 60_000;
+const PARTIAL_CACHE_TTL_MS = 60_000;
 
 function positiveNumber(value, field) {
   const number = Number(value);
@@ -72,9 +73,17 @@ function calculateMaxDrawdown(entryPrice, bars = [], currentPrice = null) {
 }
 
 class OutcomeService {
-  constructor({ provider, snapshotService, benchmarkSymbol = DEFAULT_BENCHMARK, clock, cacheTtlMs } = {}) {
+  constructor({
+    provider,
+    snapshotService,
+    repository = null,
+    benchmarkSymbol = DEFAULT_BENCHMARK,
+    clock,
+    cacheTtlMs
+  } = {}) {
     this.provider = provider;
     this.snapshotService = snapshotService;
+    this.repository = repository;
     this.benchmarkSymbol = benchmarkSymbol;
     this.clock = typeof clock === "function" ? clock : () => new Date();
     this.cacheTtlMs = Number(cacheTtlMs) || DEFAULT_CACHE_TTL_MS;
@@ -85,25 +94,99 @@ class OutcomeService {
 
   async evaluate({ videoId, candidate, classification }) {
     const cacheKey = `${videoId}:${candidate.callId}`;
+    const now = this.clock().getTime();
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return { ...cached.outcome, cache_hit: true };
+    if (cached && cached.expiresAt > now) {
+      return { ...cached.outcome, cache_hit: true, cache_source: "memory" };
     }
     if (this.locks.has(cacheKey)) {
       return this.locks.get(cacheKey);
     }
 
-    const evaluation = this.evaluateFresh({ videoId, candidate, classification });
+    const stored = this.repository
+      ? await this.repository.get(videoId, candidate.callId)
+      : null;
+    if (stored && Date.parse(stored.expires_at) > now) {
+      this.cache.set(cacheKey, {
+        expiresAt: Date.parse(stored.expires_at),
+        outcome: stored.outcome
+      });
+      return { ...stored.outcome, cache_hit: true, cache_source: "disk" };
+    }
+    if (this.locks.has(cacheKey)) {
+      return this.locks.get(cacheKey);
+    }
+
+    const evaluation = this.evaluateAndCache({
+      videoId,
+      candidate,
+      classification,
+      cacheKey,
+      stored
+    });
     this.locks.set(cacheKey, evaluation);
     try {
-      const outcome = await evaluation;
+      return await evaluation;
+    } finally {
+      this.locks.delete(cacheKey);
+    }
+  }
+
+  async evaluateAndCache({ videoId, candidate, classification, cacheKey, stored }) {
+    const now = this.clock().getTime();
+
+    try {
+      let outcome = await this.evaluateFresh({ videoId, candidate, classification });
+      const ttl = outcome.status === "complete"
+        ? this.cacheTtlMs
+        : PARTIAL_CACHE_TTL_MS;
+      const expiresAt = now + ttl;
+      this.cache.set(cacheKey, { expiresAt, outcome });
+
+      if (this.repository) {
+        try {
+          await this.repository.set({
+            videoId,
+            callId: candidate.callId,
+            outcome,
+            savedAt: now,
+            expiresAt
+          });
+          outcome = { ...outcome, cache_persisted: true };
+          this.cache.set(cacheKey, { expiresAt, outcome });
+        } catch {
+          outcome = { ...outcome, cache_persisted: false };
+          this.cache.set(cacheKey, { expiresAt, outcome });
+        }
+      }
+
+      return outcome;
+    } catch (error) {
+      if (!stored?.outcome || !error?.retryable) {
+        throw error;
+      }
+
+      const outcome = {
+        ...stored.outcome,
+        status: "stale",
+        cache_hit: true,
+        cache_source: "disk",
+        stale_since: stored.expires_at,
+        retry_after_seconds: 60,
+        warnings: [
+          ...(Array.isArray(stored.outcome.warnings) ? stored.outcome.warnings : []),
+          {
+            code: error.code || "OUTCOME_REFRESH_FAILED",
+            component: "refresh",
+            retryable: true
+          }
+        ]
+      };
       this.cache.set(cacheKey, {
-        expiresAt: Date.now() + this.cacheTtlMs,
+        expiresAt: now + PARTIAL_CACHE_TTL_MS,
         outcome
       });
       return outcome;
-    } finally {
-      this.locks.delete(cacheKey);
     }
   }
 
@@ -160,6 +243,7 @@ class OutcomeService {
       method_version: OUTCOME_METHOD_VERSION,
       status: warnings.length ? "partial" : "complete",
       cache_hit: false,
+      cache_source: "provider",
       evaluated_at: evaluatedAt,
       video_id: videoId,
       company_index: candidate.companyIndex,
@@ -196,7 +280,7 @@ class OutcomeService {
   async getBenchmark({ videoId, publishedAt, evaluatedAt }) {
     const cacheKey = `${this.benchmarkSymbol}:${videoId}:${publishedAt}`;
     const cached = this.benchmarkCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
+    if (cached && cached.expiresAt > this.clock().getTime()) {
       return cached.value;
     }
 
@@ -221,7 +305,7 @@ class OutcomeService {
       return_pct: calculateReturn(entry, current)
     };
     this.benchmarkCache.set(cacheKey, {
-      expiresAt: Date.now() + this.cacheTtlMs,
+      expiresAt: this.clock().getTime() + this.cacheTtlMs,
       value
     });
     return value;
@@ -231,6 +315,7 @@ class OutcomeService {
 module.exports = {
   DEFAULT_BENCHMARK,
   DEFAULT_CACHE_TTL_MS,
+  PARTIAL_CACHE_TTL_MS,
   OUTCOME_METHOD_VERSION,
   OutcomeService,
   calculateMaxDrawdown,

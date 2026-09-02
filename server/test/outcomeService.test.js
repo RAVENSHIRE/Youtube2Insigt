@@ -271,3 +271,107 @@ test("keeps benchmark entry prices isolated by video publication time", async ()
   assert.equal(second.benchmark.price_at_video, 205);
   assert.equal(benchmarkSnapshotCalls, 2);
 });
+
+test("reuses a fresh persisted outcome after a server restart", async () => {
+  const repository = {
+    record: null,
+    async get() {
+      return this.record;
+    },
+    async set({ videoId, callId, outcome, savedAt, expiresAt }) {
+      this.record = {
+        video_id: videoId,
+        call_id: callId,
+        saved_at: new Date(savedAt).toISOString(),
+        expires_at: new Date(expiresAt).toISOString(),
+        outcome
+      };
+    }
+  };
+  const snapshotService = {
+    async captureForVideoCall() {
+      return { snapshot: createSnapshot() };
+    },
+    async captureFromVerifiedTimestamp() {
+      return { snapshot: createSnapshot({ snapshotId: "ms_spy", price: 200 }) };
+    }
+  };
+  const provider = {
+    async getQuote(symbol) {
+      return { current: { price: symbol === "SPY" ? 210 : 110, timestamp: 1788345123 } };
+    },
+    async getHistoricalBars() {
+      return { bars: [] };
+    }
+  };
+  const clock = () => new Date("2026-09-02T15:23:41.512Z");
+  const firstService = new OutcomeService({ provider, snapshotService, repository, clock });
+  const first = await firstService.evaluate(createEvaluationInput());
+  assert.equal(first.cache_persisted, true);
+
+  const noProviderCalls = {
+    async getQuote() {
+      throw new Error("provider should not be called");
+    },
+    async getHistoricalBars() {
+      throw new Error("provider should not be called");
+    }
+  };
+  const secondService = new OutcomeService({
+    provider: noProviderCalls,
+    snapshotService: {},
+    repository,
+    clock
+  });
+  const replay = await secondService.evaluate(createEvaluationInput());
+
+  assert.equal(replay.cache_hit, true);
+  assert.equal(replay.cache_source, "disk");
+  assert.equal(replay.current_return_pct, 10);
+});
+
+test("returns the last persisted outcome when a live refresh is rate limited", async () => {
+  const rateLimit = Object.assign(new Error("rate limited"), {
+    code: "PROVIDER_RATE_LIMIT",
+    retryable: true
+  });
+  const repository = {
+    async get() {
+      return {
+        video_id: "video-1",
+        call_id: "call-1",
+        saved_at: "2026-09-02T15:00:00.000Z",
+        expires_at: "2026-09-02T15:05:00.000Z",
+        outcome: {
+          status: "complete",
+          evaluated_at: "2026-09-02T15:00:00.000Z",
+          current_price: 109,
+          current_return_pct: 9,
+          warnings: []
+        }
+      };
+    }
+  };
+  const service = new OutcomeService({
+    provider: {},
+    snapshotService: {
+      async captureForVideoCall() {
+        throw rateLimit;
+      }
+    },
+    repository,
+    clock: () => new Date("2026-09-02T15:23:41.512Z")
+  });
+
+  const outcome = await service.evaluate(createEvaluationInput());
+
+  assert.equal(outcome.status, "stale");
+  assert.equal(outcome.cache_source, "disk");
+  assert.equal(outcome.current_price, 109);
+  assert.equal(outcome.retry_after_seconds, 60);
+  assert.deepEqual(outcome.warnings, [{
+    code: "PROVIDER_RATE_LIMIT",
+    component: "refresh",
+    retryable: true
+  }]);
+});

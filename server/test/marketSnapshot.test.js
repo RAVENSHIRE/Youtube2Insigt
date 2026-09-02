@@ -236,6 +236,36 @@ test("marks a coarser successful interval as an explicit fallback", async t => {
   assert.equal(result.snapshot.market_snapshot.quality.fallback, "1min_unavailable:5min");
 });
 
+test("stops interval fallback after a provider request failure", async t => {
+  const repository = new SnapshotRepository(createTempRoot(t));
+  let providerCalls = 0;
+  const providerError = Object.assign(new Error("unsupported symbol"), {
+    code: "PROVIDER_REQUEST_FAILED",
+    retryable: false
+  });
+  const service = new MarketSnapshotService({
+    provider: {
+      async getHistoricalBars() {
+        providerCalls += 1;
+        throw providerError;
+      }
+    },
+    repository
+  });
+
+  await assert.rejects(
+    () => service.captureFromVerifiedTimestamp({
+      videoId: VIDEO_ID,
+      callId: "call_unknown_01",
+      ticker: "UNKNOWN",
+      publishedAt: PUBLISHED_AT,
+      publishedAtSource: "youtube_api"
+    }),
+    error => error === providerError
+  );
+  assert.equal(providerCalls, 1);
+});
+
 test("deduplicates concurrent capture requests before provider access", async t => {
   const repository = new SnapshotRepository(createTempRoot(t));
   let providerCalls = 0;
@@ -368,6 +398,73 @@ test("normalizes Twelve Data UTC bars and sends bounded history parameters", asy
   assert.equal(requestedUrl.searchParams.get("timezone"), "UTC");
   assert.equal(requestedUrl.searchParams.get("order"), "ASC");
   assert.equal(authorization, "apikey test-key");
+});
+
+test("opens a local cooldown after the provider minute limit", async () => {
+  let now = Date.parse("2026-09-02T12:00:00.000Z");
+  let fetchCalls = 0;
+  const provider = new TwelveDataProvider({
+    apiKey: "test-key",
+    clock: () => now,
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return {
+        ok: false,
+        status: 429,
+        async json() {
+          return { code: 429, status: "error", message: "minute limit" };
+        }
+      };
+    }
+  });
+
+  await assert.rejects(
+    () => provider.getQuote("NVDA"),
+    error => error.code === "PROVIDER_RATE_LIMIT" && error.retryAfterSeconds === 60
+  );
+  await assert.rejects(
+    () => provider.getQuote("AAPL"),
+    error => error.code === "PROVIDER_RATE_LIMIT" && error.retryAfterSeconds === 60
+  );
+  assert.equal(fetchCalls, 1);
+
+  now += 60_000;
+  await assert.rejects(() => provider.getQuote("AAPL"), /minute limit/u);
+  assert.equal(fetchCalls, 2);
+});
+
+test("keeps one free-tier credit in reserve with a local request budget", async () => {
+  const now = Date.parse("2026-09-02T12:00:00.000Z");
+  let fetchCalls = 0;
+  const provider = new TwelveDataProvider({
+    apiKey: "test-key",
+    clock: () => now,
+    maxRequestsPerMinute: 2,
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            symbol: "NVDA",
+            exchange: "NASDAQ",
+            currency: "USD",
+            close: "100",
+            timestamp: 1788345123
+          };
+        }
+      };
+    }
+  });
+
+  await provider.getQuote("NVDA");
+  await provider.getQuote("AAPL");
+  await assert.rejects(
+    () => provider.getQuote("MSFT"),
+    error => error.code === "PROVIDER_RATE_LIMIT" && error.retryAfterSeconds === 60
+  );
+  assert.equal(fetchCalls, 2);
 });
 
 test("dry-run plans no writes and reports timestamp quality", () => {

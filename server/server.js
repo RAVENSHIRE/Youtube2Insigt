@@ -20,6 +20,7 @@ const {
 const { SnapshotRepository } = require("./marketSnapshot/snapshotRepository");
 const { SnapshotValidationError } = require("./marketSnapshot/snapshotSchema");
 const { OutcomeService } = require("./outcomes/outcomeService");
+const { OutcomeRepository } = require("./outcomes/outcomeRepository");
 const {
   SnapshotCandidateError,
   resolveSnapshotCandidate
@@ -180,6 +181,9 @@ const youtubeMetadataService = new YouTubeMetadataService();
 const snapshotRepository = MARKET_SNAPSHOT_ROOT
   ? new SnapshotRepository(MARKET_SNAPSHOT_ROOT)
   : null;
+const outcomeRepository = MARKET_SNAPSHOT_ROOT
+  ? new OutcomeRepository(MARKET_SNAPSHOT_ROOT)
+  : null;
 const marketSnapshotService = snapshotRepository
   ? new MarketSnapshotService({
       provider: snapshotProvider,
@@ -188,7 +192,11 @@ const marketSnapshotService = snapshotRepository
     })
   : null;
 const outcomeService = marketSnapshotService
-  ? new OutcomeService({ provider: snapshotProvider, snapshotService: marketSnapshotService })
+  ? new OutcomeService({
+      provider: snapshotProvider,
+      snapshotService: marketSnapshotService,
+      repository: outcomeRepository
+    })
   : null;
 
 app.use(cors());
@@ -1457,7 +1465,11 @@ app.get("/videos/:videoId/companies/:companyIndex/outcome", async (req, res) => 
     });
     return res.json(outcome);
   } catch (error) {
-    console.error("GET OUTCOME ERROR:", error);
+    if (error?.retryable) {
+      console.warn(`GET OUTCOME ${error.code || "RETRYABLE"}: ${error.message}`);
+    } else {
+      console.error("GET OUTCOME ERROR:", error);
+    }
     const status = error instanceof SnapshotCandidateError
       ? error.status
       : error instanceof SnapshotValidationError
@@ -1468,9 +1480,12 @@ app.get("/videos/:videoId/companies/:companyIndex/outcome", async (req, res) => 
             ? (error.status === 429 ? 429 : 502)
             : 500;
     return res.status(status).json({
-      error: error.message || "Outcome konnte nicht berechnet werden.",
+      error: error?.code === "PROVIDER_RATE_LIMIT"
+        ? "API-Limit erreicht. Die Marktdaten können nach dem Minuten-Reset erneut geladen werden."
+        : error.message || "Outcome konnte nicht berechnet werden.",
       code: error.code || "OUTCOME_EVALUATION_FAILED",
-      retryable: Boolean(error.retryable)
+      retryable: Boolean(error.retryable),
+      retry_after_seconds: error.retryAfterSeconds || (error.retryable ? 60 : null)
     });
   }
 });
@@ -1513,7 +1528,10 @@ app.get("/health", (req, res) => {
     outcomeEngine: {
       enabled: Boolean(outcomeService),
       methodVersion: 1,
-      benchmark: "SPY"
+      benchmark: "SPY",
+      persistentCache: Boolean(outcomeRepository),
+      cacheTtlSeconds: 300,
+      safeCreditsPerMinute: snapshotProvider.maxRequestsPerMinute
     }
   });
 });

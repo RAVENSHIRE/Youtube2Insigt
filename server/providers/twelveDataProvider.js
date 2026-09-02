@@ -1,5 +1,7 @@
 const BASE_URL = "https://api.twelvedata.com";
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_SAFE_CREDITS_PER_MINUTE = 7;
+const CREDIT_WINDOW_MS = 60_000;
 
 class MarketDataProviderError extends Error {
   constructor(message, options = {}) {
@@ -8,6 +10,7 @@ class MarketDataProviderError extends Error {
     this.code = options.code || "MARKET_DATA_PROVIDER_ERROR";
     this.status = options.status || null;
     this.retryable = Boolean(options.retryable);
+    this.retryAfterSeconds = Number(options.retryAfterSeconds) || null;
   }
 }
 
@@ -70,6 +73,14 @@ class TwelveDataProvider {
     this.apiKey = cleanString(options.apiKey || process.env.TWELVE_DATA_API_KEY);
     this.fetchImpl = options.fetchImpl || globalThis.fetch;
     this.timeoutMs = Number(options.timeoutMs) || DEFAULT_TIMEOUT_MS;
+    this.clock = typeof options.clock === "function" ? options.clock : () => Date.now();
+    this.rateLimitUntil = 0;
+    this.maxRequestsPerMinute = Math.max(
+      1,
+      Number(options.maxRequestsPerMinute || process.env.TWELVE_DATA_SAFE_CREDITS_PER_MINUTE) ||
+        DEFAULT_SAFE_CREDITS_PER_MINUTE
+    );
+    this.requestTimestamps = [];
 
     if (typeof this.fetchImpl !== "function") {
       throw new Error("fetch ist für TwelveDataProvider nicht verfügbar.");
@@ -87,6 +98,27 @@ class TwelveDataProvider {
       });
     }
 
+    const now = this.clock();
+    this.requestTimestamps = this.requestTimestamps
+      .filter(timestamp => timestamp > now - CREDIT_WINDOW_MS);
+    if (this.requestTimestamps.length >= this.maxRequestsPerMinute) {
+      this.rateLimitUntil = Math.max(
+        this.rateLimitUntil,
+        this.requestTimestamps[0] + CREDIT_WINDOW_MS
+      );
+    }
+    if (this.rateLimitUntil > now) {
+      throw new MarketDataProviderError(
+        "Twelve-Data-Minutenlimit aktiv. Bitte nach dem Reset erneut versuchen.",
+        {
+          code: "PROVIDER_RATE_LIMIT",
+          status: 429,
+          retryable: true,
+          retryAfterSeconds: Math.max(1, Math.ceil((this.rateLimitUntil - now) / 1000))
+        }
+      );
+    }
+
     const url = new URL(`${BASE_URL}${endpoint}`);
     for (const [key, value] of Object.entries(params || {})) {
       if (value !== null && value !== undefined && value !== "") {
@@ -96,6 +128,7 @@ class TwelveDataProvider {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    this.requestTimestamps.push(now);
 
     try {
       const response = await this.fetchImpl(url, {
@@ -108,12 +141,16 @@ class TwelveDataProvider {
 
       if (!response.ok || data.status === "error" || data.code) {
         const status = Number(response.status) || Number(data.code) || null;
+        if (status === 429) {
+          this.rateLimitUntil = this.clock() + 60_000;
+        }
         throw new MarketDataProviderError(
           cleanString(data.message) || `Twelve Data request failed: ${status || "unknown"}`,
           {
             code: status === 429 ? "PROVIDER_RATE_LIMIT" : "PROVIDER_REQUEST_FAILED",
             status,
-            retryable: status === 429 || (status !== null && status >= 500)
+            retryable: status === 429 || (status !== null && status >= 500),
+            retryAfterSeconds: status === 429 ? 60 : null
           }
         );
       }
@@ -216,6 +253,8 @@ class TwelveDataProvider {
 }
 
 module.exports = {
+  CREDIT_WINDOW_MS,
+  DEFAULT_SAFE_CREDITS_PER_MINUTE,
   MarketDataProviderError,
   TwelveDataProvider,
   formatUtcParameter,

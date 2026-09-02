@@ -1213,7 +1213,13 @@ async function hydrateOpenOutcomeCards() {
         outcomeCache.delete(key);
         const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
         outcome = await parseResponse(response);
-        if (!response.ok) throw new Error(outcome.error || "Marktdaten nicht verfügbar.");
+        if (!response.ok) {
+          const error = new Error(outcome.error || "Marktdaten nicht verfügbar.");
+          error.code = outcome.code;
+          error.retryable = Boolean(outcome.retryable);
+          error.retryAfterSeconds = outcome.retry_after_seconds;
+          throw error;
+        }
         if (outcome.status !== "partial") {
           outcomeCache.set(key, {
             expiresAt: Date.now() + OUTCOME_CACHE_TTL_MS,
@@ -1227,7 +1233,14 @@ async function hydrateOpenOutcomeCards() {
       card.dataset.loaded = "true";
     } catch (error) {
       card.className = "outcome-card is-unavailable";
-      card.textContent = error.message || "Marktdaten nicht verfügbar.";
+      if (error.code === "PROVIDER_RATE_LIMIT") {
+        const retryAfter = Number(error.retryAfterSeconds) || 60;
+        card.innerHTML = `API-Limit erreicht · in etwa ${retryAfter} Sekunden erneut versuchen. <button type="button" data-retry-outcome>Erneut versuchen</button>`;
+      } else if (error.retryable) {
+        card.innerHTML = `Marktdaten derzeit nicht verfügbar. <button type="button" data-retry-outcome>Erneut versuchen</button>`;
+      } else {
+        card.textContent = error.message || "Marktdaten nicht verfügbar.";
+      }
       card.dataset.loaded = "true";
     }
   }
@@ -1263,6 +1276,7 @@ function renderOutcome(outcome) {
       ? `<div class="outcome-metrics">${advancedMetrics.map(value => `<span>${escapeHtml(value)}</span>`).join("")}</div>`
       : '<div class="outcome-metrics"><span>Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen.</span></div>'}
     ${outcome.status === "partial" ? '<div class="outcome-warning">Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert. <button type="button" data-retry-outcome>Nach 60 Sekunden erneut versuchen</button></div>' : ""}
+    ${outcome.status === "stale" ? '<div class="outcome-warning">Gespeicherter letzter Stand · Live-Aktualisierung wartet auf den API-Reset. <button type="button" data-retry-outcome>Erneut versuchen</button></div>' : ""}
   `;
 }
 

@@ -1297,6 +1297,17 @@ button {
 .outcome-card.is-loading,
 .outcome-card.is-unavailable { color: var(--muted); }
 
+.outcome-card.is-unavailable button {
+  margin: 6px 0 0;
+  padding: 4px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  font: inherit;
+  cursor: pointer;
+}
+
 .outcome-heading,
 .outcome-prices,
 .outcome-metrics {
