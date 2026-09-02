@@ -1,4 +1,5 @@
 const API_URL = "http://localhost:3000";
+const OUTCOME_CACHE_TTL_MS = 60_000;
 
 const COLORS = [
   "#ff5a47",
@@ -1199,13 +1200,20 @@ async function hydrateOpenOutcomeCards() {
     const key = `${card.dataset.videoId}:${card.dataset.companyIndex}`;
 
     try {
-      let outcome = outcomeCache.get(key);
+      const cached = outcomeCache.get(key);
+      let outcome = cached && cached.expiresAt > Date.now()
+        ? cached.outcome
+        : null;
       if (!outcome) {
+        outcomeCache.delete(key);
         const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
         outcome = await parseResponse(response);
         if (!response.ok) throw new Error(outcome.error || "Marktdaten nicht verfügbar.");
         if (outcome.status !== "partial") {
-          outcomeCache.set(key, outcome);
+          outcomeCache.set(key, {
+            expiresAt: Date.now() + OUTCOME_CACHE_TTL_MS,
+            outcome
+          });
         }
       }
 
