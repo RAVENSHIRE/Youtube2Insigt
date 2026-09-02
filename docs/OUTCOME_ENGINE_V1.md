@@ -6,7 +6,8 @@ publication snapshot and live market data.
 The API returns:
 
 - price at the first tradable minute at or after YouTube publication;
-- current provider price and raw percentage change;
+- exact timestamp of that publication-price bar;
+- current provider price, exact provider/fetch timestamp and raw percentage change;
 - peak price and peak return since publication;
 - maximum peak-to-trough drawdown using daily closes;
 - SPY benchmark return and alpha in percentage points.

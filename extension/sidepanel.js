@@ -1197,8 +1197,8 @@ function renderOutcome(outcome) {
   return `
     <div class="outcome-heading"><span>${escapeHtml(heading)}</span><small>${escapeHtml(outcome.ticker)}</small></div>
     <div class="outcome-prices">
-      <div><span>Bei Veröffentlichung</span><strong>${escapeHtml(formatAmount(outcome.price_at_video, currency))}</strong></div>
-      <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong></div>
+      <div><span>Bei Veröffentlichung</span><strong>${escapeHtml(formatAmount(outcome.price_at_video, currency))}</strong><time datetime="${escapeHtml(outcome.price_at_video_timestamp)}">Kurskerze: ${escapeHtml(formatDateTime(outcome.price_at_video_timestamp))}</time></div>
+      <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong><time datetime="${escapeHtml(outcome.current_price_timestamp)}">${outcome.current_price_timestamp_source === "provider_quote" ? "Kursstand" : "Abgerufen"}: ${escapeHtml(formatDateTime(outcome.current_price_timestamp))}</time></div>
       <div><span>Veränderung</span><strong>${escapeHtml(returnValue)}</strong></div>
     </div>
     <div class="outcome-metrics">
@@ -1533,6 +1533,25 @@ function formatDate(value) {
     month: "short",
     year: "numeric"
   }).format(date);
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Zeitpunkt unbekannt";
+  }
+
+  return `${new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "UTC"
+  }).format(date)} UTC`;
 }
 
 function isYouTubeWatchUrl(value) {

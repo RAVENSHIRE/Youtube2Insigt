@@ -13,6 +13,31 @@ function percentage(value) {
   return Math.round(value * 10_000) / 10_000;
 }
 
+function normalizeQuoteTimestamp(quote, fallbackTimestamp) {
+  const rawTimestamp = quote?.current?.timestamp;
+  const numericTimestamp = Number(rawTimestamp);
+
+  if (rawTimestamp !== null && rawTimestamp !== undefined && Number.isFinite(numericTimestamp)) {
+    const milliseconds = numericTimestamp > 10_000_000_000
+      ? numericTimestamp
+      : numericTimestamp * 1000;
+    const date = new Date(milliseconds);
+    if (!Number.isNaN(date.getTime())) {
+      return { timestamp: date.toISOString(), source: "provider_quote" };
+    }
+  }
+
+  const datetime = String(quote?.current?.datetime || "").trim();
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/u.test(datetime)) {
+    const milliseconds = Date.parse(datetime);
+    if (Number.isFinite(milliseconds)) {
+      return { timestamp: new Date(milliseconds).toISOString(), source: "provider_quote" };
+    }
+  }
+
+  return { timestamp: new Date(fallbackTimestamp).toISOString(), source: "evaluation_time" };
+}
+
 function calculateReturn(entryPrice, currentPrice) {
   return percentage((positiveNumber(currentPrice, "currentPrice") /
     positiveNumber(entryPrice, "entryPrice") - 1) * 100);
@@ -64,6 +89,7 @@ class OutcomeService {
     const evaluatedAt = this.clock().toISOString();
     const quote = await this.provider.getQuote(candidate.ticker);
     const current = positiveNumber(quote.current?.price, "currentPrice");
+    const currentTimestamp = normalizeQuoteTimestamp(quote, evaluatedAt);
     const history = await this.provider.getHistoricalBars({
       symbol: candidate.ticker,
       startAt: snapshot.market_snapshot.timestamp,
@@ -80,6 +106,7 @@ class OutcomeService {
     const benchmarkQuote = await this.provider.getQuote(this.benchmarkSymbol);
     const benchmarkEntry = benchmarkSnapshot.snapshot.market_snapshot.price_at_video;
     const benchmarkCurrent = positiveNumber(benchmarkQuote.current?.price, "benchmarkCurrent");
+    const benchmarkTimestamp = normalizeQuoteTimestamp(benchmarkQuote, evaluatedAt);
     const currentReturn = calculateReturn(entry, current);
     const benchmarkReturn = calculateReturn(benchmarkEntry, benchmarkCurrent);
     const peak = calculatePeakReturn(entry, history.bars, current);
@@ -99,7 +126,8 @@ class OutcomeService {
       price_at_video: entry,
       price_at_video_timestamp: snapshot.market_snapshot.timestamp,
       current_price: current,
-      current_price_timestamp: quote.current?.datetime || evaluatedAt,
+      current_price_timestamp: currentTimestamp.timestamp,
+      current_price_timestamp_source: currentTimestamp.source,
       currency: quote.currency || snapshot.market_snapshot.currency,
       exchange: quote.exchange || snapshot.market_snapshot.exchange,
       current_return_pct: currentReturn,
@@ -109,7 +137,10 @@ class OutcomeService {
       benchmark: {
         symbol: this.benchmarkSymbol,
         price_at_video: benchmarkEntry,
+        price_at_video_timestamp: benchmarkSnapshot.snapshot.market_snapshot.timestamp,
         current_price: benchmarkCurrent,
+        current_price_timestamp: benchmarkTimestamp.timestamp,
+        current_price_timestamp_source: benchmarkTimestamp.source,
         return_pct: benchmarkReturn,
         alpha_pct_points: percentage(currentReturn - benchmarkReturn)
       },
@@ -124,5 +155,6 @@ module.exports = {
   OutcomeService,
   calculateMaxDrawdown,
   calculatePeakReturn,
-  calculateReturn
+  calculateReturn,
+  normalizeQuoteTimestamp
 };

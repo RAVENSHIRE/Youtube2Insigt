@@ -1310,9 +1310,17 @@ button {
 .outcome-heading small { color: var(--muted); }
 .outcome-prices div { min-width: 0; }
 .outcome-prices span,
-.outcome-prices strong { display: block; }
+.outcome-prices strong,
+.outcome-prices time { display: block; }
 .outcome-prices span { color: var(--muted); font-size: 7px; }
 .outcome-prices strong { margin-top: 3px; font-size: 10px; }
+.outcome-prices time {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 6.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
 .outcome-metrics { margin-top: 9px; color: var(--muted); flex-wrap: wrap; }
 
 .report-video-link {
