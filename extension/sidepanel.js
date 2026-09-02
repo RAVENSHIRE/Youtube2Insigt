@@ -952,6 +952,10 @@ function handleCompanyKeyboardSelection(event) {
 }
 
 function handleVideoReportSelection(event) {
+  if (retryOutcome(event)) {
+    return;
+  }
+
   const companyTrigger = event.target.closest("[data-company-key]");
 
   if (companyTrigger) {
@@ -988,6 +992,10 @@ function handleVideoReportSelection(event) {
 }
 
 function handleInspectorClick(event) {
+  if (retryOutcome(event)) {
+    return;
+  }
+
   if (event.target.closest("[data-close-inspector]")) {
     selectedCompanyKey = null;
     selectedVideoId = null;
@@ -1004,6 +1012,29 @@ function handleInspectorClick(event) {
       showStatus(friendlyError(error), true);
     });
   }
+}
+
+function retryOutcome(event) {
+  const trigger = event.target.closest("[data-retry-outcome]");
+
+  if (!trigger) {
+    return false;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  const card = trigger.closest("[data-outcome-card]");
+  if (!card) {
+    return true;
+  }
+
+  const key = `${card.dataset.videoId}:${card.dataset.companyIndex}`;
+  outcomeCache.delete(key);
+  card.dataset.loaded = "false";
+  card.className = "outcome-card is-loading";
+  card.textContent = "Marktdaten werden erneut geladen …";
+  hydrateOpenOutcomeCards();
+  return true;
 }
 
 async function openOrFocusVideo(videoUrl) {
@@ -1173,7 +1204,9 @@ async function hydrateOpenOutcomeCards() {
         const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
         outcome = await parseResponse(response);
         if (!response.ok) throw new Error(outcome.error || "Marktdaten nicht verfügbar.");
-        outcomeCache.set(key, outcome);
+        if (outcome.status !== "partial") {
+          outcomeCache.set(key, outcome);
+        }
       }
 
       card.className = `outcome-card ${Number(outcome.current_return_pct) >= 0 ? "is-positive" : "is-negative"}`;
@@ -1194,6 +1227,18 @@ function renderOutcome(outcome) {
     : "Marktverlauf seit Erwähnung";
   const returnValue = `${Number(outcome.current_return_pct) >= 0 ? "+" : ""}${formatNumber(outcome.current_return_pct)} %`;
 
+  const advancedMetrics = [
+    outcome.peak_return_pct != null
+      ? `Peak ${formatNumber(outcome.peak_return_pct)} %`
+      : null,
+    outcome.max_drawdown_pct != null
+      ? `Drawdown ${formatNumber(outcome.max_drawdown_pct)} %`
+      : null,
+    outcome.benchmark
+      ? `Alpha vs. ${outcome.benchmark.symbol} ${formatNumber(outcome.benchmark.alpha_pct_points)} pp`
+      : null
+  ].filter(Boolean);
+
   return `
     <div class="outcome-heading"><span>${escapeHtml(heading)}</span><small>${escapeHtml(outcome.ticker)}</small></div>
     <div class="outcome-prices">
@@ -1201,11 +1246,10 @@ function renderOutcome(outcome) {
       <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong><time datetime="${escapeHtml(outcome.current_price_timestamp)}">${outcome.current_price_timestamp_source === "provider_quote" ? "Kursstand" : "Abgerufen"}: ${escapeHtml(formatDateTime(outcome.current_price_timestamp))}</time></div>
       <div><span>Veränderung</span><strong>${escapeHtml(returnValue)}</strong></div>
     </div>
-    <div class="outcome-metrics">
-      <span>Peak ${escapeHtml(formatNumber(outcome.peak_return_pct))} %</span>
-      <span>Drawdown ${escapeHtml(formatNumber(outcome.max_drawdown_pct))} %</span>
-      <span>Alpha vs. ${escapeHtml(outcome.benchmark.symbol)} ${escapeHtml(formatNumber(outcome.benchmark.alpha_pct_points))} pp</span>
-    </div>
+    ${advancedMetrics.length
+      ? `<div class="outcome-metrics">${advancedMetrics.map(value => `<span>${escapeHtml(value)}</span>`).join("")}</div>`
+      : '<div class="outcome-metrics"><span>Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen.</span></div>'}
+    ${outcome.status === "partial" ? '<div class="outcome-warning">Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert. <button type="button" data-retry-outcome>Nach 60 Sekunden erneut versuchen</button></div>' : ""}
   `;
 }
 

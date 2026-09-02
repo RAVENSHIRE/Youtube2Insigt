@@ -1,5 +1,6 @@
 const OUTCOME_METHOD_VERSION = 1;
 const DEFAULT_BENCHMARK = "SPY";
+const DEFAULT_CACHE_TTL_MS = 60_000;
 
 function positiveNumber(value, field) {
   const number = Number(value);
@@ -71,14 +72,42 @@ function calculateMaxDrawdown(entryPrice, bars = [], currentPrice = null) {
 }
 
 class OutcomeService {
-  constructor({ provider, snapshotService, benchmarkSymbol = DEFAULT_BENCHMARK, clock } = {}) {
+  constructor({ provider, snapshotService, benchmarkSymbol = DEFAULT_BENCHMARK, clock, cacheTtlMs } = {}) {
     this.provider = provider;
     this.snapshotService = snapshotService;
     this.benchmarkSymbol = benchmarkSymbol;
     this.clock = typeof clock === "function" ? clock : () => new Date();
+    this.cacheTtlMs = Number(cacheTtlMs) || DEFAULT_CACHE_TTL_MS;
+    this.cache = new Map();
+    this.locks = new Map();
+    this.benchmarkCache = new Map();
   }
 
   async evaluate({ videoId, candidate, classification }) {
+    const cacheKey = `${videoId}:${candidate.callId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { ...cached.outcome, cache_hit: true };
+    }
+    if (this.locks.has(cacheKey)) {
+      return this.locks.get(cacheKey);
+    }
+
+    const evaluation = this.evaluateFresh({ videoId, candidate, classification });
+    this.locks.set(cacheKey, evaluation);
+    try {
+      const outcome = await evaluation;
+      this.cache.set(cacheKey, {
+        expiresAt: Date.now() + this.cacheTtlMs,
+        outcome
+      });
+      return outcome;
+    } finally {
+      this.locks.delete(cacheKey);
+    }
+  }
+
+  async evaluateFresh({ videoId, candidate, classification }) {
     const captured = await this.snapshotService.captureForVideoCall({
       videoId,
       callId: candidate.callId,
@@ -90,30 +119,47 @@ class OutcomeService {
     const quote = await this.provider.getQuote(candidate.ticker);
     const current = positiveNumber(quote.current?.price, "currentPrice");
     const currentTimestamp = normalizeQuoteTimestamp(quote, evaluatedAt);
-    const history = await this.provider.getHistoricalBars({
-      symbol: candidate.ticker,
-      startAt: snapshot.market_snapshot.timestamp,
-      endAt: evaluatedAt,
-      interval: "1day"
-    });
-    const benchmarkSnapshot = await this.snapshotService.captureFromVerifiedTimestamp({
-      videoId,
-      callId: `benchmark_${this.benchmarkSymbol.toLowerCase()}:${videoId}`,
-      ticker: this.benchmarkSymbol,
-      publishedAt: snapshot.published_at,
-      publishedAtSource: "youtube_api"
-    });
-    const benchmarkQuote = await this.provider.getQuote(this.benchmarkSymbol);
-    const benchmarkEntry = benchmarkSnapshot.snapshot.market_snapshot.price_at_video;
-    const benchmarkCurrent = positiveNumber(benchmarkQuote.current?.price, "benchmarkCurrent");
-    const benchmarkTimestamp = normalizeQuoteTimestamp(benchmarkQuote, evaluatedAt);
     const currentReturn = calculateReturn(entry, current);
-    const benchmarkReturn = calculateReturn(benchmarkEntry, benchmarkCurrent);
-    const peak = calculatePeakReturn(entry, history.bars, current);
+    const warnings = [];
+    let history = null;
+    let benchmark = null;
+
+    try {
+      history = await this.provider.getHistoricalBars({
+        symbol: candidate.ticker,
+        startAt: snapshot.market_snapshot.timestamp,
+        endAt: evaluatedAt,
+        interval: "1day"
+      });
+    } catch (error) {
+      warnings.push({
+        code: error?.code || "HISTORY_UNAVAILABLE",
+        component: "asset_history",
+        retryable: Boolean(error?.retryable)
+      });
+    }
+
+    try {
+      benchmark = await this.getBenchmark({
+        videoId,
+        publishedAt: snapshot.published_at,
+        evaluatedAt
+      });
+    } catch (error) {
+      warnings.push({
+        code: error?.code || "BENCHMARK_UNAVAILABLE",
+        component: "benchmark",
+        retryable: Boolean(error?.retryable)
+      });
+    }
+
+    const peak = history ? calculatePeakReturn(entry, history.bars, current) : null;
 
     return {
       schema_version: 1,
       method_version: OUTCOME_METHOD_VERSION,
+      status: warnings.length ? "partial" : "complete",
+      cache_hit: false,
       evaluated_at: evaluatedAt,
       video_id: videoId,
       company_index: candidate.companyIndex,
@@ -131,26 +177,60 @@ class OutcomeService {
       currency: quote.currency || snapshot.market_snapshot.currency,
       exchange: quote.exchange || snapshot.market_snapshot.exchange,
       current_return_pct: currentReturn,
-      peak_price: peak.peak_price,
-      peak_return_pct: peak.peak_return_pct,
-      max_drawdown_pct: calculateMaxDrawdown(entry, history.bars, current),
-      benchmark: {
-        symbol: this.benchmarkSymbol,
-        price_at_video: benchmarkEntry,
-        price_at_video_timestamp: benchmarkSnapshot.snapshot.market_snapshot.timestamp,
-        current_price: benchmarkCurrent,
-        current_price_timestamp: benchmarkTimestamp.timestamp,
-        current_price_timestamp_source: benchmarkTimestamp.source,
-        return_pct: benchmarkReturn,
-        alpha_pct_points: percentage(currentReturn - benchmarkReturn)
-      },
+      peak_price: peak?.peak_price ?? null,
+      peak_return_pct: peak?.peak_return_pct ?? null,
+      max_drawdown_pct: history
+        ? calculateMaxDrawdown(entry, history.bars, current)
+        : null,
+      benchmark: benchmark
+        ? {
+            ...benchmark,
+            alpha_pct_points: percentage(currentReturn - benchmark.return_pct)
+          }
+        : null,
+      warnings,
       data_source: "twelve_data"
     };
+  }
+
+  async getBenchmark({ videoId, publishedAt, evaluatedAt }) {
+    const cacheKey = `${this.benchmarkSymbol}:${videoId}:${publishedAt}`;
+    const cached = this.benchmarkCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    const benchmarkSnapshot = await this.snapshotService.captureFromVerifiedTimestamp({
+      videoId,
+      callId: `benchmark_${this.benchmarkSymbol.toLowerCase()}:${videoId}`,
+      ticker: this.benchmarkSymbol,
+      publishedAt,
+      publishedAtSource: "youtube_api"
+    });
+    const quote = await this.provider.getQuote(this.benchmarkSymbol);
+    const entry = benchmarkSnapshot.snapshot.market_snapshot.price_at_video;
+    const current = positiveNumber(quote.current?.price, "benchmarkCurrent");
+    const timestamp = normalizeQuoteTimestamp(quote, evaluatedAt);
+    const value = {
+      symbol: this.benchmarkSymbol,
+      price_at_video: entry,
+      price_at_video_timestamp: benchmarkSnapshot.snapshot.market_snapshot.timestamp,
+      current_price: current,
+      current_price_timestamp: timestamp.timestamp,
+      current_price_timestamp_source: timestamp.source,
+      return_pct: calculateReturn(entry, current)
+    };
+    this.benchmarkCache.set(cacheKey, {
+      expiresAt: Date.now() + this.cacheTtlMs,
+      value
+    });
+    return value;
   }
 }
 
 module.exports = {
   DEFAULT_BENCHMARK,
+  DEFAULT_CACHE_TTL_MS,
   OUTCOME_METHOD_VERSION,
   OutcomeService,
   calculateMaxDrawdown,
