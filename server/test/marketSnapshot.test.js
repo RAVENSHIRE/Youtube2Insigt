@@ -304,6 +304,7 @@ test("reads exact publication timestamp from the YouTube API", async () => {
               snippet: {
                 publishedAt: PUBLISHED_AT,
                 channelId: "UC1234567890123456789012",
+                channelTitle: "Test Channel",
                 title: "Test Video"
               }
             }]
@@ -316,6 +317,7 @@ test("reads exact publication timestamp from the YouTube API", async () => {
 
   assert.equal(result.publishedAt, PUBLISHED_AT);
   assert.equal(result.publishedAtSource, "youtube_api");
+  assert.equal(result.channelTitle, "Test Channel");
   assert.equal(requestedUrl.searchParams.get("part"), "snippet");
   assert.equal(requestedUrl.searchParams.has("key"), false);
   assert.equal(requestedApiKey, "test-key");

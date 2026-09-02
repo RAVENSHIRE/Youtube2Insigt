@@ -26,6 +26,9 @@ const {
   YouTubeMetadataError,
   YouTubeMetadataService
 } = require("./services/youtubeMetadataService");
+const {
+  resolveAnalysisMetadata
+} = require("./services/analysisMetadataService");
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
@@ -700,23 +703,37 @@ async function analyzeVideo({
 
     console.log(`CACHE MISS: ${videoId}`);
 
-    const transcript = await getTranscript(videoId);
-    console.log(`Transcript: ${transcript.length} Zeichen`);
-
-    const analysis = await analyzeTranscript({
-      transcript,
+    const metadata = await resolveAnalysisMetadata({
+      videoId,
       title,
-      creator
-    });
-
-    const channel = normalizeChannel({
       creator,
+      url,
+      publishedAt,
       channelUrl,
       channelAvatarUrl,
       subscriberCount,
       channelTotalVideos,
       channelId,
       channelHandle
+    }, youtubeMetadataService);
+
+    const transcript = await getTranscript(videoId);
+    console.log(`Transcript: ${transcript.length} Zeichen`);
+
+    const analysis = await analyzeTranscript({
+      transcript,
+      title: metadata.title,
+      creator: metadata.creator
+    });
+
+    const channel = normalizeChannel({
+      creator: metadata.creator,
+      channelUrl: metadata.channelUrl,
+      channelAvatarUrl: metadata.channelAvatarUrl,
+      subscriberCount: metadata.subscriberCount,
+      channelTotalVideos: metadata.channelTotalVideos,
+      channelId: metadata.channelId,
+      channelHandle: metadata.channelHandle
     });
 
     const result = {
@@ -724,12 +741,12 @@ async function analyzeVideo({
       analysis_models: [GEMINI_MODEL],
       video: {
         id: videoId,
-        title: cleanString(title),
-        creator: cleanString(creator),
+        title: cleanString(metadata.title),
+        creator: cleanString(metadata.creator),
         url:
-          cleanString(url) ||
+          cleanString(metadata.url) ||
           `https://www.youtube.com/watch?v=${videoId}`,
-        published_at: cleanString(publishedAt),
+        published_at: cleanString(metadata.publishedAt),
         analyzed_at: new Date().toISOString(),
         channel: channel
           ? { ...channel, updated_at: new Date().toISOString() }
@@ -752,13 +769,13 @@ async function analyzeVideo({
     if (creatorStorageEnabled()) {
       const saved = creatorRepository.saveVideo(
         {
-          creator,
-          channelUrl,
-          channelAvatarUrl,
-          subscriberCount,
-          channelTotalVideos,
-          channelId,
-          channelHandle
+          creator: metadata.creator,
+          channelUrl: metadata.channelUrl,
+          channelAvatarUrl: metadata.channelAvatarUrl,
+          subscriberCount: metadata.subscriberCount,
+          channelTotalVideos: metadata.channelTotalVideos,
+          channelId: metadata.channelId,
+          channelHandle: metadata.channelHandle
         },
         videoId,
         result

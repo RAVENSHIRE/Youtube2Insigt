@@ -104,6 +104,7 @@ class YouTubeMetadataService {
       publishedAt,
       publishedAtSource: "youtube_api",
       channelId: item.snippet.channelId || null,
+      channelTitle: item.snippet.channelTitle || null,
       title: item.snippet.title || null
     });
     this.cache.set(videoId, metadata);
