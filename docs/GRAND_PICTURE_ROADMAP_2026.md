@@ -10,7 +10,7 @@
 
 **Verifizierter Teststand:** `feature/panel-unified-v1`<br>
 **Backend:** Analysis Version 6, Creator Storage v2, Market Snapshot Schema v1<br>
-**Testabdeckung:** 33 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
+**Testabdeckung:** 37 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
 **Aktueller Datensatz:** 3 Creator und 10 analysierte Videos im isolierten Creator-Staging
 
 | Bereich | Status | Ergebnis / nächster Nachweis |
@@ -22,7 +22,7 @@
 | Report Mix v2 | Verifiziert | `Sector → Sub-Sector → Company`, Erwähnungen, Erstvorstellung und vollständiger Drill-down |
 | Report-UX | Verifiziert | kontrastreiche Bullish-/Neutral-/Bearish-Badges sowie vollständige Thesen, Ziele, Levels und Belege |
 | Market Snapshot Foundation | Implementiert | unveränderliches Schema, Repository, YouTube-Zeitstempel-Service, Marktdaten-Provider und API-Endpunkte |
-| Market Snapshot Live-Nachweis | Offen | einen realen Snapshot erfassen und denselben Request idempotent wiederholen |
+| Market Snapshot Live-Nachweis | In Arbeit | automatischer E2E-Verifier implementiert; echter Provider-Lauf und identischer Replay stehen aus |
 | Call Classification | Offen – P0 | Mention, View, Actionable Call und Targeted Call trennen |
 | Outcome Engine | Offen – P0 | Return, Peak Return, Drawdown und Benchmark Alpha berechnen |
 | Creator Track Record | Blockiert durch Outcomes | erst nach genügend fälligen, klassifizierten Calls bewerten |
@@ -446,7 +446,7 @@ Das Ranking folgt erst, wenn Vertrauen, Datenqualität und Methodik bewiesen sin
 
 | Reihenfolge | Arbeitspaket | Status am 1. September 2026 |
 |---:|---|---|
-| 1 | Market Snapshot Foundation | implementiert und automatisiert getestet; Live-Nachweis offen |
+| 1 | Market Snapshot Foundation | implementiert; automatischer Live-Verifier und Integritäts-Gate vorhanden, echter Provider-Lauf offen |
 | 2 | Call Classification | nächster Feature-Branch |
 | 3 | Outcome Engine | offen; baut auf 1 und 2 auf |
 | 4 | Report-Mix Performance Cards | offen; erster sichtbarer Outcome-Nutzen |

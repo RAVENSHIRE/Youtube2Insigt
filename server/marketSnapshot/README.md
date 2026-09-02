@@ -55,3 +55,32 @@ node .\server\scripts\market-snapshot-dry-run.js `
 
 Dry-run mode performs no API calls and no writes. It inventories snapshot
 candidates, missing tickers, and publication timestamp quality.
+
+## Live proof gate
+
+With the server running and all three snapshot environment values configured,
+run the end-to-end proof from a second terminal:
+
+```powershell
+Set-Location .\server
+npm run snapshot:verify-live
+```
+
+The verifier automatically prefers a liquid US ticker from the analyzed Creator
+Storage. It proves all of the following in one run:
+
+1. storage, YouTube metadata and Twelve Data report `ready`;
+2. the first request creates one immutable snapshot (`HTTP 201`);
+3. the identical replay performs no write (`HTTP 200`, `created: false`);
+4. snapshot ID, payload and SHA-256 integrity remain identical;
+5. a separate read-back returns the exact persisted snapshot.
+
+An explicit candidate can be selected when required:
+
+```powershell
+npm run snapshot:verify-live -- --video-id 4u8dR2Dxcdc --company-index 0
+```
+
+The command exits non-zero unless a new snapshot is created. Use
+`--allow-existing` only when intentionally re-verifying an already captured
+candidate. API keys and filesystem paths are never included in the proof output.

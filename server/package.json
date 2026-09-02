@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "migrate:creators:dry-run": "node scripts/migrate-creators.js --dry-run",
-    "snapshot:dry-run": "node scripts/market-snapshot-dry-run.js --dry-run"
+    "snapshot:dry-run": "node scripts/market-snapshot-dry-run.js --dry-run",
+    "snapshot:verify-live": "node scripts/verify-live-market-snapshot.js"
   },
   "repository": {
     "type": "git",
