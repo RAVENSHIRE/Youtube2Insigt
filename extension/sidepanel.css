@@ -1282,6 +1282,39 @@ button {
   text-transform: none;
 }
 
+.outcome-card {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--text);
+  background: rgba(109, 167, 255, 0.08);
+  font-size: 8px;
+}
+
+.outcome-card.is-positive { border-color: rgba(75, 210, 155, 0.52); }
+.outcome-card.is-negative { border-color: rgba(255, 111, 104, 0.58); }
+.outcome-card.is-loading,
+.outcome-card.is-unavailable { color: var(--muted); }
+
+.outcome-heading,
+.outcome-prices,
+.outcome-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.outcome-heading { margin-bottom: 9px; font-weight: 780; text-transform: uppercase; }
+.outcome-heading small { color: var(--muted); }
+.outcome-prices div { min-width: 0; }
+.outcome-prices span,
+.outcome-prices strong { display: block; }
+.outcome-prices span { color: var(--muted); font-size: 7px; }
+.outcome-prices strong { margin-top: 3px; font-size: 10px; }
+.outcome-metrics { margin-top: 9px; color: var(--muted); flex-wrap: wrap; }
+
 .report-video-link {
   display: inline-block;
   margin-top: 10px;

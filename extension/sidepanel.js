@@ -45,6 +45,7 @@ let activeCreatorId = null;
 let selectedCreatorId = null;
 let selectedSector = null;
 let selectedSubSector = null;
+const outcomeCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshButton.addEventListener("click", refreshPanel);
@@ -641,7 +642,7 @@ function buildCompanyReports(videos) {
   const companies = new Map();
 
   for (const video of videos) {
-    for (const report of Array.isArray(video.companies) ? video.companies : []) {
+    for (const [companyIndex, report] of (Array.isArray(video.companies) ? video.companies : []).entries()) {
       const company = String(report.company || "").trim();
 
       if (!company) {
@@ -679,6 +680,7 @@ function buildCompanyReports(videos) {
       entry.presentations.push({
         video,
         report,
+        companyIndex,
         presentedAt: video.publishedAt || video.analyzedAt,
         dateSource: video.publishedAt ? "published" : "analyzed"
       });
@@ -979,6 +981,10 @@ function handleVideoReportSelection(event) {
       showStatus(friendlyError(error), true);
     });
   }
+
+  if (event.target.closest("summary")) {
+    window.setTimeout(hydrateOpenOutcomeCards, 0);
+  }
 }
 
 function handleInspectorClick(event) {
@@ -1068,6 +1074,7 @@ function renderCompanyInspector(key) {
   `;
 
   openReportInspector();
+  hydrateOpenOutcomeCards();
 }
 
 function renderVideoInspector(videoId) {
@@ -1103,12 +1110,13 @@ function renderVideoInspector(videoId) {
 
     <div class="report-stack">
       ${companies.length
-        ? companies.map((report, index) => renderCompanyReport(report, index)).join("")
+        ? companies.map((report, index) => renderCompanyReport(report, index, video.id)).join("")
         : '<p class="report-empty">Keine Unternehmen erkannt.</p>'}
     </div>
   `;
 
   openReportInspector();
+  hydrateOpenOutcomeCards();
 }
 
 function renderPresentationReport(presentation, index) {
@@ -1117,7 +1125,7 @@ function renderPresentationReport(presentation, index) {
     `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
 
   return `
-    <details class="report-entry" ${index === 0 ? "open" : ""}>
+    <details class="report-entry" data-outcome-video="${escapeHtml(video.id)}" data-outcome-company="${presentation.companyIndex}" ${index === 0 ? "open" : ""}>
       <summary>
         <span>${escapeHtml(video.title || "Unbenanntes Video")}</span>
         <small>${escapeHtml(formatDate(presentation.presentedAt))}</small>
@@ -1126,14 +1134,15 @@ function renderPresentationReport(presentation, index) {
         <a class="report-video-link" href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
         ${video.summary ? `<p class="report-context">${escapeHtml(video.summary)}</p>` : ""}
         ${renderCompanyReportContent(report)}
+        ${renderOutcomePlaceholder(video.id, presentation.companyIndex)}
       </div>
     </details>
   `;
 }
 
-function renderCompanyReport(report, index) {
+function renderCompanyReport(report, index, videoId) {
   return `
-    <details class="report-entry" ${index === 0 ? "open" : ""}>
+    <details class="report-entry" data-outcome-video="${escapeHtml(videoId)}" data-outcome-company="${index}" ${index === 0 ? "open" : ""}>
       <summary>
         <span class="report-entry-identity">
           <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
@@ -1142,8 +1151,61 @@ function renderCompanyReport(report, index) {
           ${renderSentimentBadge(report.sentiment)}
         </span>
       </summary>
-      <div class="report-entry-body">${renderCompanyReportContent(report)}</div>
+      <div class="report-entry-body">${renderCompanyReportContent(report)}${renderOutcomePlaceholder(videoId, index)}</div>
     </details>
+  `;
+}
+
+function renderOutcomePlaceholder(videoId, companyIndex) {
+  return `<section class="outcome-card is-loading" data-outcome-card data-video-id="${escapeHtml(videoId)}" data-company-index="${companyIndex}">Marktdaten werden geladen …</section>`;
+}
+
+async function hydrateOpenOutcomeCards() {
+  const cards = [...reportInspector.querySelectorAll("details[open] [data-outcome-card]")];
+
+  for (const card of cards) {
+    if (card.dataset.loaded === "true") continue;
+    const key = `${card.dataset.videoId}:${card.dataset.companyIndex}`;
+
+    try {
+      let outcome = outcomeCache.get(key);
+      if (!outcome) {
+        const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
+        outcome = await parseResponse(response);
+        if (!response.ok) throw new Error(outcome.error || "Marktdaten nicht verfügbar.");
+        outcomeCache.set(key, outcome);
+      }
+
+      card.className = `outcome-card ${Number(outcome.current_return_pct) >= 0 ? "is-positive" : "is-negative"}`;
+      card.innerHTML = renderOutcome(outcome);
+      card.dataset.loaded = "true";
+    } catch (error) {
+      card.className = "outcome-card is-unavailable";
+      card.textContent = error.message || "Marktdaten nicht verfügbar.";
+      card.dataset.loaded = "true";
+    }
+  }
+}
+
+function renderOutcome(outcome) {
+  const currency = outcome.currency || "";
+  const heading = outcome.performance_eligible
+    ? "Performance seit Call"
+    : "Marktverlauf seit Erwähnung";
+  const returnValue = `${Number(outcome.current_return_pct) >= 0 ? "+" : ""}${formatNumber(outcome.current_return_pct)} %`;
+
+  return `
+    <div class="outcome-heading"><span>${escapeHtml(heading)}</span><small>${escapeHtml(outcome.ticker)}</small></div>
+    <div class="outcome-prices">
+      <div><span>Bei Veröffentlichung</span><strong>${escapeHtml(formatAmount(outcome.price_at_video, currency))}</strong></div>
+      <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong></div>
+      <div><span>Veränderung</span><strong>${escapeHtml(returnValue)}</strong></div>
+    </div>
+    <div class="outcome-metrics">
+      <span>Peak ${escapeHtml(formatNumber(outcome.peak_return_pct))} %</span>
+      <span>Drawdown ${escapeHtml(formatNumber(outcome.max_drawdown_pct))} %</span>
+      <span>Alpha vs. ${escapeHtml(outcome.benchmark.symbol)} ${escapeHtml(formatNumber(outcome.benchmark.alpha_pct_points))} pp</span>
+    </div>
   `;
 }
 

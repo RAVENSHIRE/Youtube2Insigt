@@ -19,6 +19,7 @@ const {
 } = require("./marketSnapshot/marketSnapshotService");
 const { SnapshotRepository } = require("./marketSnapshot/snapshotRepository");
 const { SnapshotValidationError } = require("./marketSnapshot/snapshotSchema");
+const { OutcomeService } = require("./outcomes/outcomeService");
 const {
   SnapshotCandidateError,
   resolveSnapshotCandidate
@@ -185,6 +186,9 @@ const marketSnapshotService = snapshotRepository
       repository: snapshotRepository,
       youtubeMetadataService
     })
+  : null;
+const outcomeService = marketSnapshotService
+  ? new OutcomeService({ provider: snapshotProvider, snapshotService: marketSnapshotService })
   : null;
 
 app.use(cors());
@@ -1426,6 +1430,51 @@ app.post("/market-snapshots/capture", async (req, res) => {
   }
 });
 
+app.get("/videos/:videoId/companies/:companyIndex/outcome", async (req, res) => {
+  try {
+    if (!outcomeService) {
+      return res.status(503).json({
+        error: "Outcome Engine ist nicht konfiguriert.",
+        code: "OUTCOME_ENGINE_NOT_CONFIGURED"
+      });
+    }
+
+    const { videoId } = req.params;
+    const companyIndex = Number(req.params.companyIndex);
+    const found = findStoredVideo(videoId);
+    if (!found) {
+      throw new SnapshotCandidateError("Video nicht gefunden.", "VIDEO_NOT_FOUND", 404);
+    }
+    const candidate = resolveSnapshotCandidate({ [videoId]: found.research }, {
+      videoId,
+      companyIndex
+    });
+    const company = found.research.companies[companyIndex];
+    const outcome = await outcomeService.evaluate({
+      videoId,
+      candidate,
+      classification: classifyCall(company)
+    });
+    return res.json(outcome);
+  } catch (error) {
+    console.error("GET OUTCOME ERROR:", error);
+    const status = error instanceof SnapshotCandidateError
+      ? error.status
+      : error instanceof SnapshotValidationError
+        ? 400
+        : error instanceof MarketSnapshotUnavailableError
+          ? 422
+          : error instanceof MarketDataProviderError || error instanceof YouTubeMetadataError
+            ? (error.status === 429 ? 429 : 502)
+            : 500;
+    return res.status(status).json({
+      error: error.message || "Outcome konnte nicht berechnet werden.",
+      code: error.code || "OUTCOME_EVALUATION_FAILED",
+      retryable: Boolean(error.retryable)
+    });
+  }
+});
+
 app.get("/market", async (req, res) => {
   try {
     const symbol = String(req.query.symbol || "")
@@ -1460,6 +1509,11 @@ app.get("/health", (req, res) => {
     marketSnapshots: {
       enabled: Boolean(marketSnapshotService),
       schemaVersion: 1
+    },
+    outcomeEngine: {
+      enabled: Boolean(outcomeService),
+      methodVersion: 1,
+      benchmark: "SPY"
     }
   });
 });
