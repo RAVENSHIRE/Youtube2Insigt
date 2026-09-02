@@ -26,6 +26,9 @@ const emptyState = document.getElementById("emptyState");
 const emptyTitle = document.getElementById("emptyTitle");
 const emptyText = document.getElementById("emptyText");
 const refreshButton = document.getElementById("refreshButton");
+const creatorOverview = document.getElementById("creatorOverview");
+const creatorCount = document.getElementById("creatorCount");
+const creatorList = document.getElementById("creatorList");
 
 let currentVideoId = null;
 let currentMetadata = null;
@@ -37,6 +40,11 @@ let visibleVideos = [];
 let visibleCompanyReports = [];
 let selectedCompanyKey = null;
 let selectedVideoId = null;
+let creators = [];
+let activeCreatorId = null;
+let selectedCreatorId = null;
+let selectedSector = null;
+let selectedSubSector = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshButton.addEventListener("click", refreshPanel);
@@ -45,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
   companyLegend.addEventListener("click", handleCompanySelection);
   videoList.addEventListener("click", handleVideoReportSelection);
   reportInspector.addEventListener("click", handleInspectorClick);
+  creatorList.addEventListener("click", handleCreatorSelection);
   refreshPanel();
 });
 
@@ -91,9 +100,32 @@ async function refreshPanel() {
       }
     }
 
-    const dashboard = await getDashboard();
-    lastDashboard = dashboard;
-    renderDashboard(dashboard);
+    creators = await getCreators();
+    const activeCreator = currentMetadata
+      ? await resolveCreator(currentMetadata)
+      : null;
+    activeCreatorId = activeCreator?.creatorId || null;
+
+    if (activeCreatorId) {
+      selectedCreatorId = activeCreatorId;
+    } else if (!creators.some(creator => creator.creatorId === selectedCreatorId)) {
+      selectedCreatorId = null;
+    }
+
+    renderCreatorOverview(creators);
+
+    if (selectedCreatorId) {
+      const dashboard = await getDashboard(selectedCreatorId);
+      lastDashboard = { creatorId: selectedCreatorId, data: dashboard };
+      renderDashboard(dashboard);
+    } else {
+      renderEmpty(
+        creators.length ? "Creator auswählen" : "Noch keine Creator",
+        creators.length
+          ? "Wähle oben einen Creator für Report-Mix und Research Library."
+          : "Analysiere ein YouTube-Video, um den ersten Creator anzulegen."
+      );
+    }
 
     if (currentError) {
       showStatus(friendlyError(currentError), true);
@@ -101,8 +133,9 @@ async function refreshPanel() {
   } catch (error) {
     console.error("Side panel error:", error);
 
-    if (lastDashboard) {
-      renderDashboard(lastDashboard);
+    if (lastDashboard?.data) {
+      selectedCreatorId = lastDashboard.creatorId;
+      renderDashboard(lastDashboard.data);
       showStatus(friendlyError(error), true);
     } else {
       renderEmpty(
@@ -149,15 +182,17 @@ async function getActiveContext() {
   return {
     tab,
     videoId,
-    metadata: null
+    metadata: await getYouTubeMetadata(tab)
   };
 }
 
 async function ensureCurrentVideo(context) {
   showStatus("YouTube-Kanaldaten werden gelesen …");
 
-  const metadata = await getYouTubeMetadata(context.tab);
+  let metadata = context.metadata || await getYouTubeMetadata(context.tab);
   let research = await getStoredVideo(context.videoId);
+
+  metadata = await enrichChannelMetadata(metadata, research);
 
   if (research) {
     research = await updateStoredMetadata(context.videoId, metadata)
@@ -183,21 +218,139 @@ async function ensureCurrentVideo(context) {
   };
 }
 
-async function getDashboard() {
-  const response = await fetch(`${API_URL}/dashboard`);
+async function enrichChannelMetadata(metadata, research) {
+  const storedChannel = research?.video?.channel || null;
+  const channelUrl = metadata?.channelUrl || storedChannel?.url || null;
+  const fetchedTotalVideos = await requestChannelTotalVideos(channelUrl);
+
+  return {
+    ...metadata,
+    title: metadata?.title || research?.video?.title || null,
+    creator:
+      metadata?.creator || storedChannel?.name || research?.video?.creator || null,
+    channelUrl,
+    channelAvatarUrl:
+      metadata?.channelAvatarUrl || storedChannel?.avatar_url || null,
+    subscriberCount:
+      metadata?.subscriberCount || storedChannel?.subscriber_count || null,
+    channelTotalVideos:
+      fetchedTotalVideos ??
+      normalizeVideoCount(metadata?.channelTotalVideos) ??
+      normalizeVideoCount(storedChannel?.total_videos),
+    channelId:
+      metadata?.channelId || storedChannel?.youtube_channel_id || null,
+    channelHandle:
+      metadata?.channelHandle ||
+      storedChannel?.handle ||
+      getChannelHandle(channelUrl)
+  };
+}
+
+async function requestChannelTotalVideos(channelUrl) {
+  if (!channelUrl) {
+    return null;
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: "getChannelTotalVideos",
+      channelUrl
+    });
+
+    if (!response?.ok) {
+      return null;
+    }
+
+    return normalizeVideoCount(response.totalVideos);
+  } catch (error) {
+    console.warn("YouTube channel video count could not be requested:", error);
+    return null;
+  }
+}
+
+async function getCreators() {
+  const response = await fetch(`${API_URL}/creators`);
   const data = await parseResponse(response);
 
   if (!response.ok) {
-    throw new Error(data.error || "Dashboard konnte nicht geladen werden.");
+    throw new Error(data.error || "Creator Overview konnte nicht geladen werden.");
+  }
+
+  return Array.isArray(data.creators)
+    ? data.creators.map(normalizeCreator).filter(creator => creator.creatorId)
+    : [];
+}
+
+async function resolveCreator(metadata) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of [
+    ["channelId", metadata.channelId],
+    ["handle", metadata.channelHandle],
+    ["channelUrl", metadata.channelUrl],
+    ["name", metadata.creator]
+  ]) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  if (!params.size) {
+    return null;
+  }
+
+  const response = await fetch(`${API_URL}/creators/resolve?${params}`);
+  if (response.status === 404) {
+    return null;
+  }
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.error || "Aktiver Creator konnte nicht erkannt werden.");
+  }
+
+  return data.creator ? normalizeCreator(data.creator) : null;
+}
+
+async function getDashboard(creatorId) {
+  const response = await fetch(
+    `${API_URL}/creators/${encodeURIComponent(creatorId)}/dashboard`
+  );
+  const data = await parseResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data.error || "Creator-Dashboard konnte nicht geladen werden.");
   }
 
   return {
     totalVideos: Number(data.totalVideos) || 0,
     totalCompanies: Number(data.totalCompanies) || 0,
     totalReports: Number(data.totalReports) || 0,
+    creator: data.creator ? normalizeCreator(data.creator) : null,
     channels: Array.isArray(data.channels) ? data.channels : [],
     companies: Array.isArray(data.companies) ? data.companies : [],
     videos: Array.isArray(data.videos) ? data.videos : []
+  };
+}
+
+function normalizeCreator(creator) {
+  return {
+    creatorId: creator?.creatorId || creator?.creator_id || null,
+    name: creator?.name || creator?.display_name || "Unbekannter Creator",
+    url: creator?.url || creator?.channel_url || null,
+    avatarUrl: creator?.avatarUrl || creator?.avatar_url || null,
+    subscriberCount:
+      creator?.subscriberCount || creator?.subscriber_count || null,
+    totalVideos: normalizeVideoCount(
+      creator?.totalVideos ?? creator?.total_videos
+    ),
+    analyzedVideos: normalizeVideoCount(
+      creator?.analyzedVideos ?? creator?.analyzed_videos
+    ) || 0,
+    handle: creator?.handle || null,
+    youtubeChannelId:
+      creator?.youtubeChannelId || creator?.youtube_channel_id || null,
+    unresolved: Boolean(creator?.unresolved)
   };
 }
 
@@ -257,7 +410,10 @@ async function getYouTubeMetadata(tab) {
       publishedAt: data.publishedAt || null,
       channelUrl: data.channelUrl || null,
       channelAvatarUrl: data.channelAvatarUrl || null,
-      subscriberCount: data.subscriberCount || null
+      subscriberCount: data.subscriberCount || null,
+      channelTotalVideos: normalizeVideoCount(data.channelTotalVideos),
+      channelId: data.channelId || null,
+      channelHandle: data.channelHandle || getChannelHandle(data.channelUrl)
     };
   } catch {
     return {
@@ -267,7 +423,10 @@ async function getYouTubeMetadata(tab) {
       publishedAt: null,
       channelUrl: null,
       channelAvatarUrl: null,
-      subscriberCount: null
+      subscriberCount: null,
+      channelTotalVideos: null,
+      channelId: null,
+      channelHandle: null
     };
   }
 }
@@ -292,6 +451,76 @@ async function analyzeVideo(payload) {
   return data;
 }
 
+function renderCreatorOverview(items) {
+  creatorCount.textContent = `${items.length} ${items.length === 1 ? "Creator" : "Creators"}`;
+  creatorList.innerHTML = items.map(creator => {
+    const avatarUrl = safeUrl(creator.avatarUrl);
+    const isSelected = creator.creatorId === selectedCreatorId;
+    const isActive = creator.creatorId === activeCreatorId;
+    const analyzed = formatVideoCount(creator.analyzedVideos);
+    const total = creator.totalVideos === null
+      ? "—"
+      : formatVideoCount(creator.totalVideos);
+
+    return `
+      <button
+        class="creator-card${isSelected ? " is-selected" : ""}"
+        type="button"
+        data-creator-id="${escapeHtml(creator.creatorId)}"
+        aria-pressed="${isSelected}"
+      >
+        <span class="creator-card-avatar">
+          <span>${escapeHtml(getInitials(creator.name))}</span>
+          ${avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="">` : ""}
+        </span>
+        <span class="creator-card-copy">
+          <span class="creator-card-name">${escapeHtml(creator.name)}</span>
+          <span class="creator-card-meta">${escapeHtml(analyzed)}/${escapeHtml(total)} analysiert</span>
+          ${isActive ? '<span class="creator-card-active">Aktueller Tab</span>' : ""}
+        </span>
+      </button>
+    `;
+  }).join("");
+
+  creatorList.querySelectorAll(".creator-card-avatar img").forEach(image => {
+    image.addEventListener("error", () => image.remove());
+  });
+  creatorOverview.classList.remove("hidden");
+}
+
+async function handleCreatorSelection(event) {
+  const card = event.target.closest("[data-creator-id]");
+  const creatorId = card?.dataset.creatorId;
+
+  if (!creatorId || creatorId === selectedCreatorId || isRefreshing) {
+    return;
+  }
+
+  selectedCreatorId = creatorId;
+  selectedCompanyKey = null;
+  selectedVideoId = null;
+  selectedSector = null;
+  selectedSubSector = null;
+  setLoading(true);
+  hideStatus();
+  renderCreatorOverview(creators);
+  dashboardElement.classList.add("hidden");
+
+  try {
+    const dashboard = await getDashboard(creatorId);
+    lastDashboard = { creatorId, data: dashboard };
+    renderDashboard(dashboard);
+  } catch (error) {
+    renderEmpty(
+      "Creator-Dashboard nicht verfügbar",
+      "Bitte Server-Routing prüfen und anschließend erneut auswählen."
+    );
+    showStatus(friendlyError(error), true);
+  } finally {
+    setLoading(false);
+  }
+}
+
 function renderDashboard(data) {
   if (!data.videos.length) {
     renderEmpty(
@@ -303,8 +532,17 @@ function renderDashboard(data) {
     return;
   }
 
-  const channel = selectChannel(data);
-  visibleVideos = filterVideosForChannel(data.videos, channel);
+  const channel = data.creator;
+
+  if (!channel?.creatorId) {
+    renderEmpty(
+      "Creator nicht gefunden",
+      "Das Dashboard enthält keine eindeutige Creator-Zuordnung."
+    );
+    return;
+  }
+
+  visibleVideos = data.videos;
   visibleCompanyReports = buildCompanyReports(visibleVideos);
 
   if (
@@ -335,49 +573,26 @@ function renderDashboard(data) {
   dashboardElement.classList.remove("hidden");
 }
 
-function selectChannel(data) {
-  const creator = currentMetadata?.creator;
-  const matchingChannel = creator
-    ? data.channels.find(channel =>
-        normalizeIdentity(channel.name) === normalizeIdentity(creator)
-      )
-    : null;
-
-  if (matchingChannel) {
-    return matchingChannel;
-  }
-
-  const currentVideo = data.videos.find(video => video.id === currentVideoId);
-  const videoChannel = currentVideo?.channel;
-
-  if (videoChannel || currentVideo?.creator) {
-    return {
-      name: videoChannel?.name || currentVideo.creator,
-      url: videoChannel?.url || null,
-      avatarUrl: videoChannel?.avatar_url || null,
-      subscriberCount: videoChannel?.subscriber_count || null,
-      analyzedVideos: data.videos.filter(video =>
-        normalizeIdentity(video.creator) === normalizeIdentity(currentVideo.creator)
-      ).length
-    };
-  }
-
-  return data.channels[0] || {
-    name: "Research Library",
-    url: null,
-    avatarUrl: null,
-    subscriberCount: null,
-    analyzedVideos: data.totalVideos
-  };
-}
-
 function renderChannel(channel, data) {
   const name = channel?.name || "Research Library";
   const channelUrl = safeUrl(channel?.url);
   const avatarUrl = safeUrl(channel?.avatarUrl);
   const initials = getInitials(name);
   const subscribers = cleanSubscriberCount(channel?.subscriberCount);
-  const analyzedVideos = Number(channel?.analyzedVideos) || data.totalVideos;
+  const storedAnalyzedVideos = normalizeVideoCount(channel?.analyzedVideos);
+  const analyzedVideos = storedAnalyzedVideos ?? data.totalVideos;
+  const totalVideos = normalizeVideoCount(channel?.totalVideos);
+  const formattedAnalyzedVideos = formatVideoCount(analyzedVideos);
+  const formattedTotalVideos = totalVideos === null
+    ? "—"
+    : formatVideoCount(totalVideos);
+  const progressLabel = `${formattedAnalyzedVideos}/${formattedTotalVideos}`;
+  const progressPercentage = totalVideos > 0
+    ? Math.min(100, (analyzedVideos / totalVideos) * 100)
+    : 0;
+  const progressDescription = totalVideos === null
+    ? `${formattedAnalyzedVideos} Videos analysiert; Gesamtzahl noch nicht verfügbar`
+    : `${formattedAnalyzedVideos} von ${formattedTotalVideos} Videos analysiert`;
 
   const nameMarkup = channelUrl
     ? `<a href="${escapeHtml(channelUrl)}" target="_blank" rel="noreferrer">${escapeHtml(name)}</a>`
@@ -399,8 +614,17 @@ function renderChannel(channel, data) {
         <span class="stat-label">Abonnenten</span>
       </div>
       <div class="stat">
-        <strong class="stat-value">${analyzedVideos}</strong>
-        <span class="stat-label">Analysierte Videos</span>
+        <strong class="stat-value">${escapeHtml(formattedTotalVideos)}</strong>
+        <span class="stat-label">Gesamte Anzahl Videos</span>
+      </div>
+      <div class="stat stat-progress" aria-label="${escapeHtml(progressDescription)}">
+        <div class="stat-progress-copy">
+          <strong class="stat-value">${escapeHtml(progressLabel)}</strong>
+          <span class="stat-label">Analysierte Videos</span>
+        </div>
+        <div class="analysis-progress" aria-hidden="true">
+          <span style="width: ${progressPercentage.toFixed(2)}%;${progressPercentage > 0 ? " min-width: 2px;" : ""}"></span>
+        </div>
       </div>
     </div>
   `;
@@ -412,20 +636,6 @@ function renderChannel(channel, data) {
   });
 }
 
-function filterVideosForChannel(videos, channel) {
-  const channelName = normalizeIdentity(channel?.name);
-
-  if (!channelName || channelName === normalizeIdentity("Research Library")) {
-    return videos;
-  }
-
-  const matches = videos.filter(video => {
-    const videoChannelName = video.channel?.name || video.creator;
-    return normalizeIdentity(videoChannelName) === channelName;
-  });
-
-  return matches.length ? matches : videos;
-}
 
 function buildCompanyReports(videos) {
   const companies = new Map();
@@ -446,6 +656,8 @@ function buildCompanyReports(videos) {
           company,
           ticker: report.ticker || null,
           assetType: report.asset_type || "other",
+          sector: report.sector || "Other",
+          subSector: report.sub_sector || report.subSector || "Unclassified Assets",
           presentations: [],
           videoIds: new Set(),
           sentiment: { bull: 0, neutral: 0, bear: 0 }
@@ -488,11 +700,78 @@ function buildCompanyReports(videos) {
     .sort((a, b) => b.weight - a.weight || a.company.localeCompare(b.company));
 }
 
+function buildReportMixGroups(companies, field, kind) {
+  const groups = new Map();
+
+  for (const company of companies) {
+    const label = String(company[field] || "Other").trim() || "Other";
+
+    if (!groups.has(label)) {
+      groups.set(label, {
+        key: `${kind}:${normalizeIdentity(label)}`,
+        kind,
+        label,
+        company: label,
+        weight: 0,
+        companies: []
+      });
+    }
+
+    const group = groups.get(label);
+    group.weight += company.weight;
+    group.companies.push(company);
+  }
+
+  return [...groups.values()].sort(
+    (left, right) => right.weight - left.weight || left.label.localeCompare(right.label)
+  );
+}
+
+function getReportMixView(companies) {
+  if (!selectedSector) {
+    return {
+      level: "sector",
+      items: buildReportMixGroups(companies, "sector", "sector")
+    };
+  }
+
+  const sectorCompanies = companies.filter(company => company.sector === selectedSector);
+
+  if (!selectedSubSector) {
+    return {
+      level: "subsector",
+      items: buildReportMixGroups(sectorCompanies, "subSector", "subsector")
+    };
+  }
+
+  return {
+    level: "company",
+    items: sectorCompanies.filter(company => company.subSector === selectedSubSector)
+  };
+}
+
+function renderReportMixNavigation(level) {
+  if (level === "sector") {
+    return '<div class="report-mix-nav"><span>Sektoren</span><small>Klicken zum Aufklappen</small></div>';
+  }
+
+  const parentLabel = level === "company" ? selectedSubSector : selectedSector;
+  return `
+    <div class="report-mix-nav">
+      <button type="button" data-report-mix-back aria-label="Eine Ebene zurück">← Zurück</button>
+      <span>${escapeHtml(parentLabel || "Report-Mix")}</span>
+    </div>
+  `;
+}
+
 function renderCompanyAllocation(companies) {
-  const chart = buildDonut(companies, item => item.weight);
+  const view = getReportMixView(companies);
+  const chart = buildDonut(view.items, item => item.weight);
 
   companyDonut.style.background = "none";
-  companyDonut.title = "Klicke auf ein Segment, um alle zugehörigen Video-Reports zu lesen.";
+  companyDonut.title = view.level === "company"
+    ? "Klicke auf ein Unternehmen, um alle zugehörigen Video-Reports zu lesen."
+    : "Klicke auf ein Segment, um die nächste Report-Mix-Ebene zu öffnen.";
   companyDonut.innerHTML = `
     ${renderDonutSvg(chart, true)}
     <div class="donut-center">
@@ -501,20 +780,35 @@ function renderCompanyAllocation(companies) {
     </div>
   `;
 
-  companyLegend.innerHTML = chart.slices.length
-    ? chart.slices.map(slice => `
+  companyLegend.innerHTML = `
+    ${renderReportMixNavigation(view.level)}
+    ${chart.slices.length
+      ? chart.slices.map(slice => {
+        const item = slice.item;
+        const isCompany = view.level === "company";
+        const dataAttributes = isCompany
+          ? `data-company-key="${escapeHtml(item.key)}"`
+          : `data-report-mix-level="${escapeHtml(view.level)}" data-report-mix-key="${escapeHtml(item.label)}"`;
+        const label = isCompany ? (item.ticker || item.company) : item.label;
+        const context = isCompany
+          ? `${item.company}: ${slice.value} von ${visibleVideos.length} analysierten Videos`
+          : `${item.label}: ${slice.value} Vorstellungen`;
+
+        return `
       <button
         class="legend-item ${selectedCompanyKey === slice.item.key ? "is-selected" : ""}"
         type="button"
-        data-company-key="${escapeHtml(slice.item.key)}"
-        title="${escapeHtml(`${slice.item.company}: ${slice.value} von ${visibleVideos.length} analysierten Videos`)}"
+        ${dataAttributes}
+        title="${escapeHtml(context)}"
       >
         <span class="legend-dot" style="background:${slice.color}"></span>
-        <span class="legend-name">${escapeHtml(slice.item.ticker || slice.item.company)}</span>
+        <span class="legend-name">${escapeHtml(label)}</span>
         <span class="legend-value">${slice.value}× · ${Math.round(slice.percentage)}%</span>
       </button>
-    `).join("")
-    : '<div class="legend-more">Noch keine Unternehmen</div>';
+    `;
+      }).join("")
+      : '<div class="legend-more">Keine Einträge auf dieser Ebene</div>'}
+  `;
 }
 
 function renderVideos(videos) {
@@ -538,16 +832,15 @@ function renderVideos(videos) {
               <span>${escapeHtml(date)}</span>
             </div>
             <h2 class="video-title">
-              <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>
+              <a href="${escapeHtml(videoUrl)}" data-video-report="${escapeHtml(video.id)}" data-open-video>${escapeHtml(title)}</a>
             </h2>
           </div>
 
           <a
             class="donut donut-mini"
             href="${escapeHtml(videoUrl)}"
-            target="_blank"
-            rel="noreferrer"
             data-video-report="${escapeHtml(video.id)}"
+            data-open-video
             title="${escapeHtml(companies.map(company => company.company).filter(Boolean).join(", "))}"
             aria-label="Video öffnen und vollständigen Analysebericht mit ${companies.length} Unternehmen anzeigen"
           >
@@ -592,15 +885,46 @@ function renderVideos(videos) {
 }
 
 function companyKey(company) {
-  const assetType = normalizeIdentity(company.asset_type || "other");
-  const identity = company.ticker
-    ? normalizeIdentity(company.ticker)
-    : normalizeIdentity(company.company);
+  if (company.ticker) {
+    return `ticker:${normalizeIdentity(company.ticker)}`;
+  }
 
-  return `${assetType}:${identity}`;
+  const assetType = normalizeIdentity(company.asset_type || "other");
+  return `${assetType}:${normalizeIdentity(company.company)}`;
 }
 
 function handleCompanySelection(event) {
+  const backTrigger = event.target.closest("[data-report-mix-back]");
+
+  if (backTrigger) {
+    if (selectedSubSector) {
+      selectedSubSector = null;
+    } else {
+      selectedSector = null;
+    }
+
+    selectedCompanyKey = null;
+    closeReportInspector();
+    renderCompanyAllocation(visibleCompanyReports);
+    return;
+  }
+
+  const mixTrigger = event.target.closest("[data-report-mix-key]");
+
+  if (mixTrigger) {
+    if (mixTrigger.dataset.reportMixLevel === "sector") {
+      selectedSector = mixTrigger.dataset.reportMixKey;
+      selectedSubSector = null;
+    } else if (mixTrigger.dataset.reportMixLevel === "subsector") {
+      selectedSubSector = mixTrigger.dataset.reportMixKey;
+    }
+
+    selectedCompanyKey = null;
+    closeReportInspector();
+    renderCompanyAllocation(visibleCompanyReports);
+    return;
+  }
+
   const trigger = event.target.closest("[data-company-key]");
 
   if (!trigger) {
@@ -615,14 +939,14 @@ function handleCompanyKeyboardSelection(event) {
     return;
   }
 
-  const trigger = event.target.closest("[data-company-key]");
+  const trigger = event.target.closest("[data-company-key], [data-report-mix-key]");
 
   if (!trigger) {
     return;
   }
 
   event.preventDefault();
-  selectCompanyReport(trigger.dataset.companyKey);
+  trigger.click();
 }
 
 function handleVideoReportSelection(event) {
@@ -636,10 +960,24 @@ function handleVideoReportSelection(event) {
   const reportTrigger = event.target.closest("[data-video-report]");
 
   if (reportTrigger) {
+    event.preventDefault();
     selectedCompanyKey = null;
     selectedVideoId = reportTrigger.dataset.videoReport;
     renderCompanyAllocation(visibleCompanyReports);
     renderVideoInspector(selectedVideoId);
+    openOrFocusVideo(reportTrigger.href).catch(error => {
+      showStatus(friendlyError(error), true);
+    });
+    return;
+  }
+
+  const videoTrigger = event.target.closest("[data-open-video]");
+
+  if (videoTrigger) {
+    event.preventDefault();
+    openOrFocusVideo(videoTrigger.href).catch(error => {
+      showStatus(friendlyError(error), true);
+    });
   }
 }
 
@@ -649,7 +987,30 @@ function handleInspectorClick(event) {
     selectedVideoId = null;
     renderCompanyAllocation(visibleCompanyReports);
     closeReportInspector();
+    return;
   }
+
+  const videoTrigger = event.target.closest("[data-open-video]");
+
+  if (videoTrigger) {
+    event.preventDefault();
+    openOrFocusVideo(videoTrigger.href).catch(error => {
+      showStatus(friendlyError(error), true);
+    });
+  }
+}
+
+async function openOrFocusVideo(videoUrl) {
+  const response = await chrome.runtime.sendMessage({
+    action: "openOrFocusVideo",
+    videoUrl
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error || "YouTube-Tab konnte nicht geöffnet werden.");
+  }
+
+  return response;
 }
 
 function selectCompanyReport(key) {
@@ -733,7 +1094,7 @@ function renderVideoInspector(videoId) {
     <div class="report-video-meta">
       <span>${escapeHtml(video.creator || "Unbekannter Kanal")}</span>
       <span>${escapeHtml(formatDate(video.publishedAt || video.analyzedAt))}</span>
-      <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noreferrer">Video öffnen ↗</a>
+      <a href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
     </div>
 
     ${video.summary
@@ -762,7 +1123,7 @@ function renderPresentationReport(presentation, index) {
         <small>${escapeHtml(formatDate(presentation.presentedAt))}</small>
       </summary>
       <div class="report-entry-body">
-        <a class="report-video-link" href="${escapeHtml(videoUrl)}" target="_blank" rel="noreferrer">Video öffnen ↗</a>
+        <a class="report-video-link" href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
         ${video.summary ? `<p class="report-context">${escapeHtml(video.summary)}</p>` : ""}
         ${renderCompanyReportContent(report)}
       </div>
@@ -774,8 +1135,12 @@ function renderCompanyReport(report, index) {
   return `
     <details class="report-entry" ${index === 0 ? "open" : ""}>
       <summary>
-        <span>${escapeHtml(report.company || "Unternehmen")}${report.ticker ? ` · ${escapeHtml(report.ticker)}` : ""}</span>
-        <small>${escapeHtml(sentimentLabel(report.sentiment))}</small>
+        <span class="report-entry-identity">
+          <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
+          ${report.ticker ? `<span class="ticker-badge">${escapeHtml(report.ticker)}</span>` : ""}
+          ${renderCallTypeBadge(report.call_type)}
+          ${renderSentimentBadge(report.sentiment)}
+        </span>
       </summary>
       <div class="report-entry-body">${renderCompanyReportContent(report)}</div>
     </details>
@@ -797,9 +1162,10 @@ function renderCompanyReportContent(report) {
   const levels = Array.isArray(report.levels) ? report.levels : [];
   const evidence = Array.isArray(report.evidence) ? report.evidence : [];
   const facts = [
-    report.sentiment ? ["Sentiment", sentimentLabel(report.sentiment)] : null,
     report.action && report.action !== "none" ? ["Aktion", actionLabel(report.action)] : null,
     report.asset_type ? ["Asset", report.asset_type.toUpperCase()] : null,
+    report.sector ? ["Sektor", report.sector] : null,
+    report.sub_sector ? ["Sub-Sektor", report.sub_sector] : null,
     report.time_horizon ? ["Zeithorizont", report.time_horizon] : null,
     report.confidence != null && Number.isFinite(Number(report.confidence))
       ? ["Konfidenz", `${Math.round(Number(report.confidence) * 100)} %`]
@@ -810,6 +1176,16 @@ function renderCompanyReportContent(report) {
   ].filter(Boolean);
 
   return `
+    <div class="report-call-row">
+      <span>Call-Typ</span>
+      <span class="report-call-value">
+        ${renderCallTypeBadge(report.call_type)}
+        ${report.performance_eligible ? '<small>Performance-Tracking aktiv</small>' : '<small>Kein Performance-Tracking</small>'}
+      </span>
+    </div>
+    ${report.sentiment
+      ? `<div class="report-sentiment-row"><span>Sentiment</span>${renderSentimentBadge(report.sentiment)}</div>`
+      : ""}
     ${facts.length
       ? `<div class="report-facts">${facts.map(([label, value]) => `
           <div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
@@ -852,6 +1228,29 @@ function closeReportInspector() {
 
 function sentimentLabel(value) {
   return ({ bull: "Bullish", neutral: "Neutral", bear: "Bearish" })[value] || "Neutral";
+}
+
+function renderSentimentBadge(value) {
+  const sentiment = ["bull", "neutral", "bear"].includes(value)
+    ? value
+    : "neutral";
+  return `<span class="sentiment-badge sentiment-${sentiment}">${escapeHtml(sentimentLabel(sentiment))}</span>`;
+}
+
+function callTypeLabel(value) {
+  return ({
+    mention: "Mention",
+    view: "View",
+    actionable: "Actionable",
+    targeted: "Targeted"
+  })[value] || "Mention";
+}
+
+function renderCallTypeBadge(value) {
+  const callType = ["mention", "view", "actionable", "targeted"].includes(value)
+    ? value
+    : "mention";
+  return `<span class="call-type-badge call-type-${callType}">${escapeHtml(callTypeLabel(callType))}</span>`;
 }
 
 function actionLabel(value) {
@@ -932,8 +1331,12 @@ function buildDonut(items, getWeight) {
 function renderDonutSvg(chart, interactive = false) {
   const circles = chart.slices.map(slice => {
     const selected = selectedCompanyKey === slice.item.key;
+    const itemLabel = slice.item.label || slice.item.company;
+    const dataAttributes = slice.item.kind
+      ? `data-report-mix-level="${escapeHtml(slice.item.kind === "sector" ? "sector" : "subsector")}" data-report-mix-key="${escapeHtml(slice.item.label)}"`
+      : `data-company-key="${escapeHtml(slice.item.key)}"`;
     const attributes = interactive
-      ? `role="button" tabindex="0" data-company-key="${escapeHtml(slice.item.key)}" aria-label="${escapeHtml(`${slice.item.company}: ${slice.value} Vorstellungen, ${Math.round(slice.percentage)} Prozent`)}"`
+      ? `role="button" tabindex="0" ${dataAttributes} aria-label="${escapeHtml(`${itemLabel}: ${slice.value} Vorstellungen, ${Math.round(slice.percentage)} Prozent`)}"`
       : "aria-hidden=\"true\"";
 
     return `
@@ -1009,6 +1412,29 @@ function cleanSubscriberCount(value) {
     .trim();
 }
 
+function normalizeVideoCount(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === "boolean" ||
+    (typeof value === "string" && !value.trim())
+  ) {
+    return null;
+  }
+
+  const count = Number(value);
+
+  return Number.isSafeInteger(count) && count >= 0 ? count : null;
+}
+
+function formatVideoCount(value) {
+  const count = normalizeVideoCount(value);
+
+  return count === null
+    ? "—"
+    : new Intl.NumberFormat("de-DE").format(count);
+}
+
 function getInitials(value) {
   const words = String(value || "")
     .trim()
@@ -1061,6 +1487,15 @@ function isYouTubeWatchUrl(value) {
 
 function isValidVideoId(value) {
   return typeof value === "string" && /^[A-Za-z0-9_-]{6,20}$/.test(value);
+}
+
+function getChannelHandle(value) {
+  try {
+    const segment = new URL(value).pathname.split("/").filter(Boolean)[0];
+    return segment?.startsWith("@") ? segment : null;
+  } catch {
+    return null;
+  }
 }
 
 function safeUrl(value) {

@@ -6,16 +6,46 @@ const path = require("path");
 const { YoutubeTranscript } = require("youtube-transcript");
 const { GoogleGenAI } = require("@google/genai");
 const { getQuote } = require("./marketData");
+const { classifyCompany } = require("./classification/sectorTaxonomy");
+const {
+  CALL_TYPES,
+  classifyCall,
+  normalizeConfidence
+} = require("./classification/callClassification");
+const { CreatorRepository } = require("./storage/creatorRepository");
+const {
+  MarketSnapshotService,
+  MarketSnapshotUnavailableError
+} = require("./marketSnapshot/marketSnapshotService");
+const { SnapshotRepository } = require("./marketSnapshot/snapshotRepository");
+const { SnapshotValidationError } = require("./marketSnapshot/snapshotSchema");
+const {
+  SnapshotCandidateError,
+  resolveSnapshotCandidate
+} = require("./marketSnapshot/snapshotDryRun");
+const {
+  MarketDataProviderError,
+  TwelveDataProvider
+} = require("./providers/twelveDataProvider");
+const {
+  YouTubeMetadataError,
+  YouTubeMetadataService
+} = require("./services/youtubeMetadataService");
+const {
+  resolveAnalysisMetadata
+} = require("./services/analysisMetadataService");
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const PORT = Number(process.env.PORT) || 3000;
 const GEMINI_MODEL = "gemini-3.5-flash";
 
-const ANALYSIS_VERSION = 5;
+const ANALYSIS_VERSION = 7;
 
 const DATA_DIR = path.join(__dirname, "data");
 const VIDEO_FILE = path.join(DATA_DIR, "videos.json");
+const CREATOR_DATA_ROOT = cleanEnvironmentPath(process.env.CREATOR_DATA_ROOT);
+const MARKET_SNAPSHOT_ROOT = cleanString(process.env.MARKET_SNAPSHOT_ROOT);
 
 const ASSET_TYPES = new Set([
   "stock",
@@ -58,9 +88,20 @@ const ANALYSIS_SCHEMA = {
             type: "string",
             enum: [...ASSET_TYPES]
           },
+          sector: { type: "string" },
+          sub_sector: { type: "string" },
           sentiment: {
             type: "string",
             enum: [...SENTIMENTS]
+          },
+          call_type: {
+            type: "string",
+            enum: [...CALL_TYPES]
+          },
+          call_confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1
           },
           thesis: { type: "string" },
           mentioned_move_pct: { type: "number" },
@@ -106,7 +147,11 @@ const ANALYSIS_SCHEMA = {
         required: [
           "company",
           "asset_type",
+          "sector",
+          "sub_sector",
           "sentiment",
+          "call_type",
+          "call_confidence",
           "thesis",
           "price_targets",
           "action",
@@ -126,9 +171,32 @@ if (!process.env.GEMINI_API_KEY) {
 const app = express();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const analysisLocks = new Map();
+const creatorRepository = CREATOR_DATA_ROOT
+  ? new CreatorRepository(CREATOR_DATA_ROOT)
+  : null;
+const snapshotProvider = new TwelveDataProvider();
+const youtubeMetadataService = new YouTubeMetadataService();
+const snapshotRepository = MARKET_SNAPSHOT_ROOT
+  ? new SnapshotRepository(MARKET_SNAPSHOT_ROOT)
+  : null;
+const marketSnapshotService = snapshotRepository
+  ? new MarketSnapshotService({
+      provider: snapshotProvider,
+      repository: snapshotRepository,
+      youtubeMetadataService
+    })
+  : null;
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+
+function cleanEnvironmentPath(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function creatorStorageEnabled() {
+  return Boolean(creatorRepository);
+}
 
 function ensureStorage() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -171,6 +239,17 @@ function hasVideo(videos, videoId) {
   return Object.prototype.hasOwnProperty.call(videos, videoId);
 }
 
+function findStoredVideo(videoId) {
+  if (creatorStorageEnabled()) {
+    return creatorRepository.findVideo(videoId);
+  }
+
+  const videos = loadVideos();
+  return hasVideo(videos, videoId)
+    ? { creatorId: null, research: videos[videoId] }
+    : null;
+}
+
 function cleanString(value) {
   if (typeof value !== "string") {
     return null;
@@ -190,6 +269,20 @@ function normalizeNumber(value) {
 
   const result = Number(value.trim().replace(",", "."));
   return Number.isFinite(result) ? result : null;
+}
+
+function normalizeCount(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === "boolean" ||
+    (typeof value === "string" && !value.trim())
+  ) {
+    return null;
+  }
+
+  const count = Number(value);
+  return Number.isSafeInteger(count) && count >= 0 ? count : null;
 }
 
 function normalizeIdentity(value) {
@@ -324,15 +417,21 @@ function normalizeCompany(company) {
     return null;
   }
 
+  const classification = classifyCompany(company);
+
   return {
     company: name,
     ticker: cleanString(company.ticker)?.toUpperCase() || null,
     asset_type: ASSET_TYPES.has(company.asset_type)
       ? company.asset_type
       : "other",
+    sector: classification.sector,
+    sub_sector: classification.sub_sector,
     sentiment: SENTIMENTS.has(company.sentiment)
       ? company.sentiment
       : "neutral",
+    call_type: CALL_TYPES.has(company.call_type) ? company.call_type : null,
+    call_confidence: normalizeConfidence(company.call_confidence),
     thesis: cleanString(company.thesis),
     mentioned_move_pct: normalizeNumber(company.mentioned_move_pct),
     price_targets: Array.isArray(company.price_targets)
@@ -443,6 +542,13 @@ function mergeCompanies(extractedCompanies) {
     existing.mentioned_move_pct ??= company.mentioned_move_pct;
     existing.time_horizon ||= company.time_horizon;
 
+    if (company.call_confidence !== null) {
+      existing.call_confidence = Math.max(
+        existing.call_confidence ?? 0,
+        company.call_confidence
+      );
+    }
+
     if (existing.action === "none" && company.action !== "none") {
       existing.action = company.action;
     }
@@ -471,7 +577,8 @@ function mergeCompanies(extractedCompanies) {
 
     return {
       ...result,
-      sentiment: selectSentiment(_sentiments)
+      sentiment: selectSentiment(_sentiments),
+      ...classifyCall(result)
     };
   });
 }
@@ -539,17 +646,32 @@ alle separat in price_targets speichern.
 8. sentiment:
 bull | neutral | bear
 
-9. action nur bei konkreter Handlung:
+9. sector und sub_sector:
+- sector ist eine breite, stabile Branche, zum Beispiel Technology, Financials, Health Care, Industrials, Energy, Materials, Consumer Discretionary, Consumer Staples, Communication Services, Utilities, Digital Assets oder Commodities.
+- sub_sector ist die präzisere Unterbranche, zum Beispiel Semiconductors, Banks, Biotechnology oder Gold Mining.
+- Der Unternehmensname bleibt die dritte und unterste Hierarchieebene.
+- Verwende konsistente englische Kategorienamen.
+
+10. action nur bei konkreter Handlung:
 buy | add | hold | reduce | sell | watch | none
 
-10. evidence:
+11. call_type trennt Erwähnung und echte Creator-Calls strikt:
+- mention: Das Asset wird nur genannt oder sachlich beschrieben. Keine eigene Richtung und keine Handlung.
+- view: Der Creator äußert eine bullische, neutrale oder bearische Einschätzung, aber keine konkrete Handlung.
+- actionable: Der Creator fordert ausdrücklich buy, add, hold, reduce oder sell. Eine nur berichtete Analystenmeinung zählt nicht als Creator-Call.
+- targeted: Ein actionable Call enthält zusätzlich mindestens ein ausdrückliches Kursziel UND einen Zeithorizont.
+- watch und none sind niemals actionable.
+- call_confidence liegt zwischen 0 und 1 und bewertet nur die Sicherheit dieser Klassifikation.
+- Keine Handlung aus Sentiment, Kursziel oder Kontext erfinden.
+
+12. evidence:
 maximal 3 kurze Transcript-Ausschnitte pro Asset.
 
-11. ticker nur wenn eindeutig identifizierbar.
+13. ticker nur wenn eindeutig identifizierbar.
 
-12. Keine aktuellen oder historischen Marktpreise aus externem Wissen ergänzen.
+14. Keine aktuellen oder historischen Marktpreise aus externem Wissen ergänzen.
 
-13. summary:
+15. summary:
 Fasse das gesamte Video in maximal 3 kurzen Sätzen zusammen.
 Fokus auf Marktthese, Investment-Themen, Chancen und Risiken.
 
@@ -574,16 +696,22 @@ function normalizeChannel({
   creator,
   channelUrl,
   channelAvatarUrl,
-  subscriberCount
+  subscriberCount,
+  channelTotalVideos,
+  channelId,
+  channelHandle
 }) {
   const channel = {
     name: cleanString(creator),
     url: cleanString(channelUrl),
     avatar_url: cleanString(channelAvatarUrl),
-    subscriber_count: cleanString(subscriberCount)
+    subscriber_count: cleanString(subscriberCount),
+    total_videos: normalizeCount(channelTotalVideos),
+    youtube_channel_id: cleanString(channelId),
+    handle: cleanString(channelHandle)
   };
 
-  return Object.values(channel).some(Boolean) ? channel : null;
+  return Object.values(channel).some(value => value !== null) ? channel : null;
 }
 
 async function analyzeVideo({
@@ -594,33 +722,53 @@ async function analyzeVideo({
   publishedAt,
   channelUrl,
   channelAvatarUrl,
-  subscriberCount
+  subscriberCount,
+  channelTotalVideos,
+  channelId,
+  channelHandle
 }) {
   return withAnalysisLock(videoId, async () => {
     // Existing videos are an immutable cache and are never analyzed automatically.
-    const videos = loadVideos();
+    const stored = findStoredVideo(videoId);
 
-    if (hasVideo(videos, videoId)) {
+    if (stored) {
       console.log(`CACHE HIT: ${videoId}`);
-      return { cached: true, videoId };
+      return { cached: true, videoId, creatorId: stored.creatorId };
     }
 
     console.log(`CACHE MISS: ${videoId}`);
+
+    const metadata = await resolveAnalysisMetadata({
+      videoId,
+      title,
+      creator,
+      url,
+      publishedAt,
+      channelUrl,
+      channelAvatarUrl,
+      subscriberCount,
+      channelTotalVideos,
+      channelId,
+      channelHandle
+    }, youtubeMetadataService);
 
     const transcript = await getTranscript(videoId);
     console.log(`Transcript: ${transcript.length} Zeichen`);
 
     const analysis = await analyzeTranscript({
       transcript,
-      title,
-      creator
+      title: metadata.title,
+      creator: metadata.creator
     });
 
     const channel = normalizeChannel({
-      creator,
-      channelUrl,
-      channelAvatarUrl,
-      subscriberCount
+      creator: metadata.creator,
+      channelUrl: metadata.channelUrl,
+      channelAvatarUrl: metadata.channelAvatarUrl,
+      subscriberCount: metadata.subscriberCount,
+      channelTotalVideos: metadata.channelTotalVideos,
+      channelId: metadata.channelId,
+      channelHandle: metadata.channelHandle
     });
 
     const result = {
@@ -628,12 +776,12 @@ async function analyzeVideo({
       analysis_models: [GEMINI_MODEL],
       video: {
         id: videoId,
-        title: cleanString(title),
-        creator: cleanString(creator),
+        title: cleanString(metadata.title),
+        creator: cleanString(metadata.creator),
         url:
-          cleanString(url) ||
+          cleanString(metadata.url) ||
           `https://www.youtube.com/watch?v=${videoId}`,
-        published_at: cleanString(publishedAt),
+        published_at: cleanString(metadata.publishedAt),
         analyzed_at: new Date().toISOString(),
         channel: channel
           ? { ...channel, updated_at: new Date().toISOString() }
@@ -644,24 +792,44 @@ async function analyzeVideo({
     };
 
     // Recheck immediately before writing so an existing result is never replaced.
-    const latestVideos = loadVideos();
+    const latestStored = findStoredVideo(videoId);
 
-    if (hasVideo(latestVideos, videoId)) {
+    if (latestStored) {
       console.log(`CACHE HIT BEFORE SAVE: ${videoId}`);
-      return { cached: true, videoId };
+      return { cached: true, videoId, creatorId: latestStored.creatorId };
     }
 
-    latestVideos[videoId] = result;
-    saveVideos(latestVideos);
+    let creatorId = null;
+
+    if (creatorStorageEnabled()) {
+      const saved = creatorRepository.saveVideo(
+        {
+          creator: metadata.creator,
+          channelUrl: metadata.channelUrl,
+          channelAvatarUrl: metadata.channelAvatarUrl,
+          subscriberCount: metadata.subscriberCount,
+          channelTotalVideos: metadata.channelTotalVideos,
+          channelId: metadata.channelId,
+          channelHandle: metadata.channelHandle
+        },
+        videoId,
+        result
+      );
+      creatorId = saved.creatorId;
+    } else {
+      const latestVideos = loadVideos();
+      latestVideos[videoId] = result;
+      saveVideos(latestVideos);
+    }
 
     console.log(`CACHE SAVED: ${videoId}`);
-    return { cached: false, videoId };
+    return { cached: false, videoId, creatorId };
   });
 }
 
 function updateVideoMetadata(videoId, metadata) {
-  const videos = loadVideos();
-  const stored = videos[videoId];
+  const found = findStoredVideo(videoId);
+  const stored = found?.research;
 
   if (!stored?.video) {
     return null;
@@ -679,10 +847,15 @@ function updateVideoMetadata(videoId, metadata) {
       ? {
           ...(currentVideo.channel || {}),
           ...Object.fromEntries(
-            Object.entries(nextChannel).filter(([, value]) => value)
+            Object.entries(nextChannel).filter(([, value]) => value !== null)
           )
         }
       : currentVideo.channel || null
+  };
+
+  const nextResearch = {
+    ...stored,
+    video: nextVideo
   };
 
   if (JSON.stringify(nextVideo) !== JSON.stringify(currentVideo)) {
@@ -690,14 +863,16 @@ function updateVideoMetadata(videoId, metadata) {
       nextVideo.channel.updated_at = new Date().toISOString();
     }
 
-    videos[videoId] = {
-      ...stored,
-      video: nextVideo
-    };
+    if (creatorStorageEnabled()) {
+      return creatorRepository.updateVideo(videoId, () => nextResearch)?.research || null;
+    }
+
+    const videos = loadVideos();
+    videos[videoId] = nextResearch;
     saveVideos(videos);
   }
 
-  return videos[videoId];
+  return nextResearch;
 }
 
 function buildCompanyIndex(videos) {
@@ -717,8 +892,9 @@ function buildCompanyIndex(videos) {
 
       const ticker = cleanString(company.ticker);
       const assetType = cleanString(company.asset_type) || "other";
+      const classification = classifyCompany(company);
       const key = ticker
-        ? `${assetType}:${ticker.toUpperCase()}`
+        ? `ticker:${ticker.toUpperCase()}`
         : `${assetType}:${normalizeIdentity(name)}`;
 
       if (!companies.has(key)) {
@@ -726,6 +902,8 @@ function buildCompanyIndex(videos) {
           company: name,
           ticker,
           asset_type: assetType,
+          sector: classification.sector,
+          sub_sector: classification.sub_sector,
           mentions: 0,
           videoIds: new Set(),
           presentations: [],
@@ -768,6 +946,8 @@ function buildCompanyIndex(videos) {
         company: entry.company,
         ticker: entry.ticker,
         asset_type: entry.asset_type,
+        sector: entry.sector,
+        sub_sector: entry.sub_sector,
         mentions: entry.mentions,
         videos: entry.videoIds.size,
         firstPresentedAt: presentations[0]?.presentedAt || null,
@@ -799,6 +979,7 @@ function buildChannelIndex(videos) {
         url: cleanString(storedChannel.url),
         avatarUrl: cleanString(storedChannel.avatar_url),
         subscriberCount: cleanString(storedChannel.subscriber_count),
+        totalVideos: normalizeCount(storedChannel.total_videos),
         analyzedVideos: 0,
         latestAnalysis: analyzedAt,
         metadataAt: cleanString(storedChannel.updated_at) || analyzedAt
@@ -822,6 +1003,8 @@ function buildChannelIndex(videos) {
       entry.avatarUrl = cleanString(storedChannel.avatar_url) || entry.avatarUrl;
       entry.subscriberCount =
         cleanString(storedChannel.subscriber_count) || entry.subscriberCount;
+      entry.totalVideos =
+        normalizeCount(storedChannel.total_videos) ?? entry.totalVideos;
       entry.metadataAt = metadataAt;
     }
   }
@@ -837,7 +1020,26 @@ function buildChannelIndex(videos) {
     });
 }
 
-function buildDashboard(videos) {
+function profileToChannel(profile) {
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    creatorId: profile.creator_id,
+    name: profile.display_name,
+    url: profile.channel_url,
+    avatarUrl: profile.avatar_url,
+    subscriberCount: profile.subscriber_count,
+    totalVideos: normalizeCount(profile.total_videos),
+    analyzedVideos: Number(profile.analyzed_videos) || 0,
+    handle: profile.handle,
+    youtubeChannelId: profile.youtube_channel_id,
+    unresolved: Boolean(profile.unresolved)
+  };
+}
+
+function buildDashboard(videos, creatorProfile = null) {
   const companies = buildCompanyIndex(videos);
   const dashboardVideos = Object.values(videos)
     .filter(research => research?.video?.id)
@@ -853,6 +1055,8 @@ function buildDashboard(videos) {
       companies: Array.isArray(research.companies)
         ? research.companies.map(company => ({
             ...company,
+            ...classifyCompany(company),
+            ...classifyCall(company),
             price_targets: Array.isArray(company.price_targets)
               ? company.price_targets.map(target => ({ ...target }))
               : [],
@@ -867,11 +1071,16 @@ function buildDashboard(videos) {
     }))
     .sort((a, b) => String(b.analyzedAt).localeCompare(String(a.analyzedAt)));
 
+  const channels = creatorProfile
+    ? [profileToChannel(creatorProfile)]
+    : buildChannelIndex(videos);
+
   return {
     totalVideos: dashboardVideos.length,
     totalCompanies: companies.length,
     totalReports: companies.reduce((sum, company) => sum + company.mentions, 0),
-    channels: buildChannelIndex(videos),
+    creator: profileToChannel(creatorProfile),
+    channels,
     companies,
     videos: dashboardVideos
   };
@@ -887,7 +1096,10 @@ app.post("/analyze", async (req, res) => {
       publishedAt,
       channelUrl,
       channelAvatarUrl,
-      subscriberCount
+      subscriberCount,
+      channelTotalVideos,
+      channelId,
+      channelHandle
     } = req.body || {};
 
     if (!isValidVideoId(videoId)) {
@@ -904,7 +1116,10 @@ app.post("/analyze", async (req, res) => {
       publishedAt,
       channelUrl,
       channelAvatarUrl,
-      subscriberCount
+      subscriberCount,
+      channelTotalVideos,
+      channelId,
+      channelHandle
     });
 
     return res.json(result);
@@ -918,6 +1133,74 @@ app.post("/analyze", async (req, res) => {
     return res.status(status).json({
       error: error.message || "Analyse fehlgeschlagen."
     });
+  }
+});
+
+app.get("/creators", (req, res) => {
+  try {
+    if (!creatorStorageEnabled()) {
+      return res.status(409).json({
+        error: "Creator-Storage ist nicht aktiv. Starte den Server mit CREATOR_DATA_ROOT."
+      });
+    }
+
+    const creators = creatorRepository.listCreators().map(profileToChannel);
+    return res.json({
+      schemaVersion: 2,
+      totalCreators: creators.length,
+      totalAnalyzedVideos: creators.reduce(
+        (sum, creator) => sum + creator.analyzedVideos,
+        0
+      ),
+      creators
+    });
+  } catch (error) {
+    console.error("GET CREATORS ERROR:", error);
+    return res.status(500).json({ error: "Creator Overview konnte nicht geladen werden." });
+  }
+});
+
+app.get("/creators/resolve", (req, res) => {
+  try {
+    if (!creatorStorageEnabled()) {
+      return res.status(409).json({ error: "Creator-Storage ist nicht aktiv." });
+    }
+
+    const profile = creatorRepository.resolveCreator({
+      channelId: req.query.channelId,
+      channelHandle: req.query.handle,
+      channelUrl: req.query.channelUrl,
+      creator: req.query.name
+    });
+
+    if (!profile) {
+      return res.status(404).json({ error: "Creator nicht gefunden." });
+    }
+
+    return res.json({ creator: profileToChannel(profile) });
+  } catch (error) {
+    console.error("RESOLVE CREATOR ERROR:", error);
+    return res.status(500).json({ error: "Creator konnte nicht aufgelöst werden." });
+  }
+});
+
+app.get("/creators/:creatorId/dashboard", (req, res) => {
+  try {
+    if (!creatorStorageEnabled()) {
+      return res.status(409).json({ error: "Creator-Storage ist nicht aktiv." });
+    }
+
+    const profile = creatorRepository.getCreator(req.params.creatorId);
+    const videos = creatorRepository.getCreatorVideos(req.params.creatorId);
+
+    if (!profile || !videos) {
+      return res.status(404).json({ error: "Creator nicht gefunden." });
+    }
+
+    return res.json(buildDashboard(videos, profile));
+  } catch (error) {
+    console.error("GET CREATOR DASHBOARD ERROR:", error);
+    return res.status(500).json({ error: "Creator-Dashboard konnte nicht geladen werden." });
   }
 });
 
@@ -951,6 +1234,20 @@ app.post("/videos/:videoId/metadata", (req, res) => {
 
 app.get("/dashboard", (req, res) => {
   try {
+    if (creatorStorageEnabled()) {
+      const creatorId = cleanString(req.query.creatorId);
+      const profile = creatorId ? creatorRepository.getCreator(creatorId) : null;
+      const videos = creatorId ? creatorRepository.getCreatorVideos(creatorId) : null;
+
+      if (!profile || !videos) {
+        return res.status(400).json({
+          error: "creatorId ist im Creator-Storage erforderlich."
+        });
+      }
+
+      return res.json(buildDashboard(videos, profile));
+    }
+
     return res.json(buildDashboard(loadVideos()));
   } catch (error) {
     console.error("GET DASHBOARD ERROR:", error);
@@ -971,15 +1268,18 @@ app.get("/videos/:videoId", (req, res) => {
       });
     }
 
-    const videos = loadVideos();
+    const found = findStoredVideo(videoId);
 
-    if (!hasVideo(videos, videoId)) {
+    if (!found) {
       return res.status(404).json({
         error: "Video nicht gefunden."
       });
     }
 
-    return res.json(videos[videoId]);
+    return res.json({
+      ...found.research,
+      storage_creator_id: found.creatorId
+    });
   } catch (error) {
     console.error("GET VIDEO ERROR:", error);
 
@@ -991,7 +1291,16 @@ app.get("/videos/:videoId", (req, res) => {
 
 app.get("/companies", (req, res) => {
   try {
-    const videos = loadVideos();
+    const creatorId = cleanString(req.query.creatorId);
+    const videos = creatorStorageEnabled()
+      ? creatorRepository.getCreatorVideos(creatorId)
+      : loadVideos();
+
+    if (!videos) {
+      return res.status(400).json({
+        error: "Gültige creatorId ist im Creator-Storage erforderlich."
+      });
+    }
     const companies = buildCompanyIndex(videos);
 
     return res.json({
@@ -1004,6 +1313,115 @@ app.get("/companies", (req, res) => {
 
     return res.status(500).json({
       error: "Companies konnten nicht geladen werden."
+    });
+  }
+});
+
+app.get("/market-snapshots/health", (req, res) => {
+  const dependenciesConfigured =
+    snapshotProvider.isConfigured() && youtubeMetadataService.isConfigured();
+  res.json({
+    status: !marketSnapshotService
+      ? "disabled"
+      : dependenciesConfigured
+        ? "ready"
+        : "configuration_required",
+    schemaVersion: 1,
+    storageConfigured: Boolean(snapshotRepository),
+    marketProviderConfigured: snapshotProvider.isConfigured(),
+    youtubeMetadataConfigured: youtubeMetadataService.isConfigured(),
+    immutableWrites: true,
+    selectionPolicy: "first_tradable_bar_at_or_after_publication"
+  });
+});
+
+app.get("/market-snapshots/:snapshotId", async (req, res) => {
+  try {
+    if (!snapshotRepository) {
+      return res.status(503).json({
+        error: "Market-Snapshot-Storage ist nicht konfiguriert."
+      });
+    }
+
+    const snapshot = await snapshotRepository.get(req.params.snapshotId);
+    if (!snapshot) {
+      return res.status(404).json({ error: "MarketSnapshot nicht gefunden." });
+    }
+
+    return res.json(snapshot);
+  } catch (error) {
+    console.error("GET MARKET SNAPSHOT ERROR:", error);
+    return res.status(error instanceof SnapshotValidationError ? 400 : 500).json({
+      error: error.message || "MarketSnapshot konnte nicht geladen werden.",
+      code: error.code || "MARKET_SNAPSHOT_READ_FAILED"
+    });
+  }
+});
+
+app.post("/market-snapshots/capture", async (req, res) => {
+  try {
+    if (!marketSnapshotService) {
+      return res.status(503).json({
+        error: "MARKET_SNAPSHOT_ROOT fehlt.",
+        code: "SNAPSHOT_STORAGE_NOT_CONFIGURED"
+      });
+    }
+
+    const { videoId } = req.body || {};
+    const companyIndex = req.body?.companyIndex;
+    const found = findStoredVideo(videoId);
+
+    if (!found) {
+      throw new SnapshotCandidateError("Video nicht gefunden.", "VIDEO_NOT_FOUND", 404);
+    }
+
+    const candidate = resolveSnapshotCandidate({ [videoId]: found.research }, {
+      videoId,
+      companyIndex
+    });
+    const result = await marketSnapshotService.captureForVideoCall({
+      videoId: candidate.videoId,
+      callId: candidate.callId,
+      ticker: candidate.ticker
+    });
+
+    return res.status(result.created ? 201 : 200).json({
+      market_snapshot_status: "captured",
+      market_snapshot_id: result.snapshot.snapshot_id,
+      created: result.created,
+      company_index: candidate.companyIndex,
+      company: candidate.company,
+      ticker: candidate.ticker,
+      snapshot: result.snapshot
+    });
+  } catch (error) {
+    console.error("CAPTURE MARKET SNAPSHOT ERROR:", error);
+
+    let status = 500;
+    if (error instanceof SnapshotCandidateError) {
+      status = error.status;
+    } else if (error instanceof SnapshotValidationError) {
+      status = 400;
+    } else if (
+      error instanceof YouTubeMetadataError ||
+      error instanceof MarketDataProviderError
+    ) {
+      status = error.status === 429
+        ? 429
+        : ["YOUTUBE_NOT_CONFIGURED", "PROVIDER_NOT_CONFIGURED"].includes(error.code)
+          ? 503
+          : 502;
+    } else if (error instanceof MarketSnapshotUnavailableError) {
+      status = 422;
+    } else if (error?.code === "IMMUTABLE_SNAPSHOT_CONFLICT") {
+      status = 409;
+    }
+
+    return res.status(status).json({
+      market_snapshot_status: "unavailable",
+      error: error.message || "MarketSnapshot konnte nicht erfasst werden.",
+      code: error.code || "MARKET_SNAPSHOT_CAPTURE_FAILED",
+      retryable: Boolean(error.retryable)
     });
   }
 });
@@ -1034,14 +1452,42 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     analysisVersion: ANALYSIS_VERSION,
-    model: GEMINI_MODEL
+    model: GEMINI_MODEL,
+    storageMode: creatorStorageEnabled() ? "creator-v2" : "legacy-flat",
+    creatorCount: creatorStorageEnabled()
+      ? creatorRepository.listCreators().length
+      : null,
+    marketSnapshots: {
+      enabled: Boolean(marketSnapshotService),
+      schemaVersion: 1
+    }
   });
 });
 
-ensureStorage();
+if (!creatorStorageEnabled()) {
+  ensureStorage();
+}
 
-app.listen(PORT, () => {
-  console.log(`YT Investor Research API läuft auf http://localhost:${PORT}`);
-  console.log(`Analysis Version: ${ANALYSIS_VERSION}`);
-  console.log(`Gemini Model: ${GEMINI_MODEL}`);
-});
+function startServer(port = PORT) {
+  return app.listen(port, () => {
+    console.log(`YT Investor Research API läuft auf http://localhost:${port}`);
+    console.log(`Analysis Version: ${ANALYSIS_VERSION}`);
+    console.log(`Gemini Model: ${GEMINI_MODEL}`);
+    console.log(`Storage Mode: ${creatorStorageEnabled() ? "creator-v2" : "legacy-flat"}`);
+    console.log(`Market Snapshots: ${marketSnapshotService ? "enabled" : "disabled"}`);
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  app,
+  buildDashboard,
+  creatorStorageEnabled,
+  marketSnapshotService,
+  profileToChannel,
+  snapshotRepository,
+  startServer
+};

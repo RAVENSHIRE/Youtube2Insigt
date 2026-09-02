@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "assignments": {
+    "VuofyRxOHV4": {
+      "display_name": "DER AKTIONÄR TV",
+      "handle": "@der.aktionaer",
+      "channel_url": "https://www.youtube.com/@der.aktionaer",
+      "reason": "Die Video-ID wurde über offizielle DER-AKTIONÄR-Verweise dem Kanal zugeordnet.",
+      "source_url": "https://www.youtube.com/watch?v=VuofyRxOHV4"
+    }
+  }
+}
