@@ -10,20 +10,20 @@
 
 **Verifizierter Teststand:** `feature/live-market-snapshot-proof`<br>
 **Backend:** Analysis Version 6, Creator Storage v2, Market Snapshot Schema v1<br>
-**Testabdeckung:** 37 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
+**Testabdeckung:** 47 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
 **Aktueller Datensatz:** 3 Creator und 10 analysierte Videos im isolierten Creator-Staging
 
 | Bereich | Status | Ergebnis / nächster Nachweis |
 |---|---|---|
 | Repository Recovery | Abgeschlossen | einzelnes Repo, PR #6 auf `main`, Analyse-Version 5 konsolidiert |
-| Creator Storage & Routing | Verifiziert | Daten pro Creator isoliert; Creator-Wechsel und Erkennung des aktuellen Tabs funktionieren |
+| Creator Storage & Routing | Verifiziert | Daten pro Creator isoliert; Creator-Wechsel, aktueller Tab und API-Fallback bei fehlenden DOM-Kanaldaten funktionieren |
 | Channel Overview | Verifiziert | Abonnenten, gesamte Videozahl und dynamischer Analysefortschritt |
 | Research Library | Verifiziert | vollständige Reports, klickbare Videos und Wiederverwendung bereits geöffneter YouTube-Tabs |
 | Report Mix v2 | Verifiziert | `Sector → Sub-Sector → Company`, Erwähnungen, Erstvorstellung und vollständiger Drill-down |
 | Report-UX | Verifiziert | kontrastreiche Bullish-/Neutral-/Bearish-Badges sowie vollständige Thesen, Ziele, Levels und Belege |
 | Market Snapshot Foundation | Implementiert | unveränderliches Schema, Repository, YouTube-Zeitstempel-Service, Marktdaten-Provider und API-Endpunkte |
 | Market Snapshot Live-Nachweis | Verifiziert | NVDA-Live-Snapshot mit YouTube-Zeitstempel und Twelve Data erfasst; HTTP-201-Write, idempotenter HTTP-200-Replay und identischer Read-back bestätigt |
-| Call Classification | Offen – P0 | Mention, View, Actionable Call und Targeted Call trennen |
+| Call Classification | Implementiert – UI-Test offen | Schema v7, deterministische Eligibility-Regeln, Legacy-Normalisierung und Report-Badges vorhanden |
 | Outcome Engine | Offen – P0 | Return, Peak Return, Drawdown und Benchmark Alpha berechnen |
 | Creator Track Record | Blockiert durch Outcomes | erst nach genügend fälligen, klassifizierten Calls bewerten |
 
@@ -447,7 +447,7 @@ Das Ranking folgt erst, wenn Vertrauen, Datenqualität und Methodik bewiesen sin
 | Reihenfolge | Arbeitspaket | Status am 1. September 2026 |
 |---:|---|---|
 | 1 | Market Snapshot Foundation | abgeschlossen; Live-Provider-Lauf, unveränderlicher Write, Replay und Read-back am 2. September 2026 verifiziert |
-| 2 | Call Classification | nächster Feature-Branch |
+| 2 | Call Classification | auf `feature/call-classification` implementiert; lokaler Chrome-Test offen |
 | 3 | Outcome Engine | offen; baut auf 1 und 2 auf |
 | 4 | Report-Mix Performance Cards | offen; erster sichtbarer Outcome-Nutzen |
 | 5 | Best/Worst Calls und Call Timeline | offen |

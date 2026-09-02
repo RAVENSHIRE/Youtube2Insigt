@@ -1138,6 +1138,7 @@ function renderCompanyReport(report, index) {
         <span class="report-entry-identity">
           <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
           ${report.ticker ? `<span class="ticker-badge">${escapeHtml(report.ticker)}</span>` : ""}
+          ${renderCallTypeBadge(report.call_type)}
           ${renderSentimentBadge(report.sentiment)}
         </span>
       </summary>
@@ -1175,6 +1176,13 @@ function renderCompanyReportContent(report) {
   ].filter(Boolean);
 
   return `
+    <div class="report-call-row">
+      <span>Call-Typ</span>
+      <span class="report-call-value">
+        ${renderCallTypeBadge(report.call_type)}
+        ${report.performance_eligible ? '<small>Performance-Tracking aktiv</small>' : '<small>Kein Performance-Tracking</small>'}
+      </span>
+    </div>
     ${report.sentiment
       ? `<div class="report-sentiment-row"><span>Sentiment</span>${renderSentimentBadge(report.sentiment)}</div>`
       : ""}
@@ -1227,6 +1235,22 @@ function renderSentimentBadge(value) {
     ? value
     : "neutral";
   return `<span class="sentiment-badge sentiment-${sentiment}">${escapeHtml(sentimentLabel(sentiment))}</span>`;
+}
+
+function callTypeLabel(value) {
+  return ({
+    mention: "Mention",
+    view: "View",
+    actionable: "Actionable",
+    targeted: "Targeted"
+  })[value] || "Mention";
+}
+
+function renderCallTypeBadge(value) {
+  const callType = ["mention", "view", "actionable", "targeted"].includes(value)
+    ? value
+    : "mention";
+  return `<span class="call-type-badge call-type-${callType}">${escapeHtml(callTypeLabel(callType))}</span>`;
 }
 
 function actionLabel(value) {

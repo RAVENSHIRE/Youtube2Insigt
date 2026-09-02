@@ -971,7 +971,8 @@ button {
 }
 
 .ticker-badge,
-.sentiment-badge {
+.sentiment-badge,
+.call-type-badge {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -988,6 +989,30 @@ button {
 .ticker-badge {
   color: #e6e9ee;
   background: rgba(255, 255, 255, 0.07);
+}
+
+.call-type-mention {
+  border-color: rgba(160, 168, 184, 0.55);
+  color: #d1d5dc;
+  background: rgba(160, 168, 184, 0.12);
+}
+
+.call-type-view {
+  border-color: rgba(109, 167, 255, 0.62);
+  color: #bad6ff;
+  background: rgba(109, 167, 255, 0.14);
+}
+
+.call-type-actionable {
+  border-color: rgba(245, 191, 86, 0.68);
+  color: #ffe0a0;
+  background: rgba(245, 191, 86, 0.15);
+}
+
+.call-type-targeted {
+  border-color: rgba(184, 137, 255, 0.7);
+  color: #dfc7ff;
+  background: rgba(184, 137, 255, 0.16);
 }
 
 .report-inspector {
@@ -1225,6 +1250,36 @@ button {
   font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.report-call-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.report-call-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  text-align: right;
+}
+
+.report-call-value small {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 650;
+  text-transform: none;
 }
 
 .report-video-link {

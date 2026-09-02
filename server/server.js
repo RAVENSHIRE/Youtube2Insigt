@@ -7,6 +7,11 @@ const { YoutubeTranscript } = require("youtube-transcript");
 const { GoogleGenAI } = require("@google/genai");
 const { getQuote } = require("./marketData");
 const { classifyCompany } = require("./classification/sectorTaxonomy");
+const {
+  CALL_TYPES,
+  classifyCall,
+  normalizeConfidence
+} = require("./classification/callClassification");
 const { CreatorRepository } = require("./storage/creatorRepository");
 const {
   MarketSnapshotService,
@@ -35,7 +40,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 const PORT = Number(process.env.PORT) || 3000;
 const GEMINI_MODEL = "gemini-3.5-flash";
 
-const ANALYSIS_VERSION = 6;
+const ANALYSIS_VERSION = 7;
 
 const DATA_DIR = path.join(__dirname, "data");
 const VIDEO_FILE = path.join(DATA_DIR, "videos.json");
@@ -89,6 +94,15 @@ const ANALYSIS_SCHEMA = {
             type: "string",
             enum: [...SENTIMENTS]
           },
+          call_type: {
+            type: "string",
+            enum: [...CALL_TYPES]
+          },
+          call_confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1
+          },
           thesis: { type: "string" },
           mentioned_move_pct: { type: "number" },
           price_targets: {
@@ -136,6 +150,8 @@ const ANALYSIS_SCHEMA = {
           "sector",
           "sub_sector",
           "sentiment",
+          "call_type",
+          "call_confidence",
           "thesis",
           "price_targets",
           "action",
@@ -414,6 +430,8 @@ function normalizeCompany(company) {
     sentiment: SENTIMENTS.has(company.sentiment)
       ? company.sentiment
       : "neutral",
+    call_type: CALL_TYPES.has(company.call_type) ? company.call_type : null,
+    call_confidence: normalizeConfidence(company.call_confidence),
     thesis: cleanString(company.thesis),
     mentioned_move_pct: normalizeNumber(company.mentioned_move_pct),
     price_targets: Array.isArray(company.price_targets)
@@ -524,6 +542,13 @@ function mergeCompanies(extractedCompanies) {
     existing.mentioned_move_pct ??= company.mentioned_move_pct;
     existing.time_horizon ||= company.time_horizon;
 
+    if (company.call_confidence !== null) {
+      existing.call_confidence = Math.max(
+        existing.call_confidence ?? 0,
+        company.call_confidence
+      );
+    }
+
     if (existing.action === "none" && company.action !== "none") {
       existing.action = company.action;
     }
@@ -552,7 +577,8 @@ function mergeCompanies(extractedCompanies) {
 
     return {
       ...result,
-      sentiment: selectSentiment(_sentiments)
+      sentiment: selectSentiment(_sentiments),
+      ...classifyCall(result)
     };
   });
 }
@@ -629,14 +655,23 @@ bull | neutral | bear
 10. action nur bei konkreter Handlung:
 buy | add | hold | reduce | sell | watch | none
 
-11. evidence:
+11. call_type trennt Erwähnung und echte Creator-Calls strikt:
+- mention: Das Asset wird nur genannt oder sachlich beschrieben. Keine eigene Richtung und keine Handlung.
+- view: Der Creator äußert eine bullische, neutrale oder bearische Einschätzung, aber keine konkrete Handlung.
+- actionable: Der Creator fordert ausdrücklich buy, add, hold, reduce oder sell. Eine nur berichtete Analystenmeinung zählt nicht als Creator-Call.
+- targeted: Ein actionable Call enthält zusätzlich mindestens ein ausdrückliches Kursziel UND einen Zeithorizont.
+- watch und none sind niemals actionable.
+- call_confidence liegt zwischen 0 und 1 und bewertet nur die Sicherheit dieser Klassifikation.
+- Keine Handlung aus Sentiment, Kursziel oder Kontext erfinden.
+
+12. evidence:
 maximal 3 kurze Transcript-Ausschnitte pro Asset.
 
-12. ticker nur wenn eindeutig identifizierbar.
+13. ticker nur wenn eindeutig identifizierbar.
 
-13. Keine aktuellen oder historischen Marktpreise aus externem Wissen ergänzen.
+14. Keine aktuellen oder historischen Marktpreise aus externem Wissen ergänzen.
 
-14. summary:
+15. summary:
 Fasse das gesamte Video in maximal 3 kurzen Sätzen zusammen.
 Fokus auf Marktthese, Investment-Themen, Chancen und Risiken.
 
@@ -1021,6 +1056,7 @@ function buildDashboard(videos, creatorProfile = null) {
         ? research.companies.map(company => ({
             ...company,
             ...classifyCompany(company),
+            ...classifyCall(company),
             price_targets: Array.isArray(company.price_targets)
               ? company.price_targets.map(target => ({ ...target }))
               : [],
