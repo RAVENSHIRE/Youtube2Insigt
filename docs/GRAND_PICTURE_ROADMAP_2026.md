@@ -8,7 +8,7 @@
 
 ## Aktueller Umsetzungsstand
 
-**Verifizierter Teststand:** `feature/panel-unified-v1`<br>
+**Verifizierter Teststand:** `feature/live-market-snapshot-proof`<br>
 **Backend:** Analysis Version 6, Creator Storage v2, Market Snapshot Schema v1<br>
 **Testabdeckung:** 37 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
 **Aktueller Datensatz:** 3 Creator und 10 analysierte Videos im isolierten Creator-Staging
@@ -22,7 +22,7 @@
 | Report Mix v2 | Verifiziert | `Sector → Sub-Sector → Company`, Erwähnungen, Erstvorstellung und vollständiger Drill-down |
 | Report-UX | Verifiziert | kontrastreiche Bullish-/Neutral-/Bearish-Badges sowie vollständige Thesen, Ziele, Levels und Belege |
 | Market Snapshot Foundation | Implementiert | unveränderliches Schema, Repository, YouTube-Zeitstempel-Service, Marktdaten-Provider und API-Endpunkte |
-| Market Snapshot Live-Nachweis | In Arbeit | automatischer E2E-Verifier implementiert; echter Provider-Lauf und identischer Replay stehen aus |
+| Market Snapshot Live-Nachweis | Verifiziert | NVDA-Live-Snapshot mit YouTube-Zeitstempel und Twelve Data erfasst; HTTP-201-Write, idempotenter HTTP-200-Replay und identischer Read-back bestätigt |
 | Call Classification | Offen – P0 | Mention, View, Actionable Call und Targeted Call trennen |
 | Outcome Engine | Offen – P0 | Return, Peak Return, Drawdown und Benchmark Alpha berechnen |
 | Creator Track Record | Blockiert durch Outcomes | erst nach genügend fälligen, klassifizierten Calls bewerten |
@@ -446,7 +446,7 @@ Das Ranking folgt erst, wenn Vertrauen, Datenqualität und Methodik bewiesen sin
 
 | Reihenfolge | Arbeitspaket | Status am 1. September 2026 |
 |---:|---|---|
-| 1 | Market Snapshot Foundation | implementiert; automatischer Live-Verifier und Integritäts-Gate vorhanden, echter Provider-Lauf offen |
+| 1 | Market Snapshot Foundation | abgeschlossen; Live-Provider-Lauf, unveränderlicher Write, Replay und Read-back am 2. September 2026 verifiziert |
 | 2 | Call Classification | nächster Feature-Branch |
 | 3 | Outcome Engine | offen; baut auf 1 und 2 auf |
 | 4 | Report-Mix Performance Cards | offen; erster sichtbarer Outcome-Nutzen |
@@ -468,7 +468,7 @@ und mit Bewertungszeitpunkt, Methodenversion und Datenquelle gespeichert.
 - [x] Report Mix als `Sector → Sub-Sector → Company` mit vollständigem Drill-down umsetzen.
 - [x] Research Library, Smart Tabs, Kontrast und Sentiment-Badges verifizieren.
 - [x] unveränderliches Market-Snapshot-Schema, Repository und Provider-Services implementieren.
-- [ ] einen realen Snapshot erfassen und Idempotenz mit identischer Snapshot-ID bestätigen.
+- [x] realen NVDA-Snapshot erfassen und Idempotenz mit identischer Snapshot-ID bestätigen.
 - [ ] Report-Schema v7 mit `call_type`, Catalyst, Invalidation, Disclosure und Evidence definieren.
 - [ ] Call Classification für Mention, View, Actionable und Targeted implementieren.
 - [ ] Outcome Engine für Current Return, Peak Return, Drawdown und Benchmark Alpha implementieren.
@@ -636,7 +636,7 @@ Vorbereitung:
 ## 15. Die nächsten 30 Tage
 
 1. verifizierten Stand `feature/panel-unified-v1` sichern, PR prüfen und einen Release-Kandidaten markieren.
-2. einen realen Market Snapshot erfassen und den identischen Request idempotent validieren.
+2. ~~einen realen Market Snapshot erfassen und den identischen Request idempotent validieren.~~ Abgeschlossen am 2. September 2026.
 3. `feature/call-classification` mit Mention/View/Actionable/Targeted und Migrationstest bauen.
 4. `feature/outcome-engine` für Current Return, Peak Return, Max Drawdown und Benchmark Alpha bauen.
 5. „Since Call“ als erste Performance Card in den bestehenden Report-Mix-Drill-down integrieren.
