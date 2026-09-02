@@ -1013,6 +1013,10 @@ function handleInspectorClick(event) {
       showStatus(friendlyError(error), true);
     });
   }
+
+  if (event.target.closest("summary")) {
+    window.setTimeout(hydrateOpenOutcomeCards, 0);
+  }
 }
 
 function retryOutcome(event) {
@@ -1163,10 +1167,10 @@ function renderPresentationReport(presentation, index) {
         <small>${escapeHtml(formatDate(presentation.presentedAt))}</small>
       </summary>
       <div class="report-entry-body">
+        ${renderOutcomePlaceholder(video.id, presentation.companyIndex)}
         <a class="report-video-link" href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
         ${video.summary ? `<p class="report-context">${escapeHtml(video.summary)}</p>` : ""}
         ${renderCompanyReportContent(report)}
-        ${renderOutcomePlaceholder(video.id, presentation.companyIndex)}
       </div>
     </details>
   `;
@@ -1183,7 +1187,7 @@ function renderCompanyReport(report, index, videoId) {
           ${renderSentimentBadge(report.sentiment)}
         </span>
       </summary>
-      <div class="report-entry-body">${renderCompanyReportContent(report)}${renderOutcomePlaceholder(videoId, index)}</div>
+      <div class="report-entry-body">${renderOutcomePlaceholder(videoId, index)}${renderCompanyReportContent(report)}</div>
     </details>
   `;
 }
@@ -1196,7 +1200,8 @@ async function hydrateOpenOutcomeCards() {
   const cards = [...reportInspector.querySelectorAll("details[open] [data-outcome-card]")];
 
   for (const card of cards) {
-    if (card.dataset.loaded === "true") continue;
+    if (["true", "loading"].includes(card.dataset.loaded)) continue;
+    card.dataset.loaded = "loading";
     const key = `${card.dataset.videoId}:${card.dataset.companyIndex}`;
 
     try {
@@ -1243,16 +1248,16 @@ function renderOutcome(outcome) {
       ? `Drawdown ${formatNumber(outcome.max_drawdown_pct)} %`
       : null,
     outcome.benchmark
-      ? `Alpha vs. ${outcome.benchmark.symbol} ${formatNumber(outcome.benchmark.alpha_pct_points)} pp`
+      ? `Alpha ${formatNumber(outcome.benchmark.alpha_pct_points)} pp`
       : null
   ].filter(Boolean);
 
   return `
     <div class="outcome-heading"><span>${escapeHtml(heading)}</span><small>${escapeHtml(outcome.ticker)}</small></div>
     <div class="outcome-prices">
-      <div><span>Bei Veröffentlichung</span><strong>${escapeHtml(formatAmount(outcome.price_at_video, currency))}</strong><time datetime="${escapeHtml(outcome.price_at_video_timestamp)}">Kurskerze: ${escapeHtml(formatDateTime(outcome.price_at_video_timestamp))}</time></div>
-      <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong><time datetime="${escapeHtml(outcome.current_price_timestamp)}">${outcome.current_price_timestamp_source === "provider_quote" ? "Kursstand" : "Abgerufen"}: ${escapeHtml(formatDateTime(outcome.current_price_timestamp))}</time></div>
-      <div><span>Veränderung</span><strong>${escapeHtml(returnValue)}</strong></div>
+      <div><span>Damals</span><strong>${escapeHtml(formatAmount(outcome.price_at_video, currency))}</strong><time datetime="${escapeHtml(outcome.price_at_video_timestamp)}">${escapeHtml(formatDateTime(outcome.price_at_video_timestamp))}</time></div>
+      <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong><time datetime="${escapeHtml(outcome.current_price_timestamp)}">${escapeHtml(formatDateTime(outcome.current_price_timestamp))}</time></div>
+      <div><span>Rendite</span><strong>${escapeHtml(returnValue)}</strong></div>
     </div>
     ${advancedMetrics.length
       ? `<div class="outcome-metrics">${advancedMetrics.map(value => `<span>${escapeHtml(value)}</span>`).join("")}</div>`
@@ -1602,8 +1607,8 @@ function formatDateTime(value) {
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-    timeZone: "UTC"
-  }).format(date)} UTC`;
+    timeZone: "Europe/Zurich"
+  }).format(date)} Zürich`;
 }
 
 function isYouTubeWatchUrl(value) {
