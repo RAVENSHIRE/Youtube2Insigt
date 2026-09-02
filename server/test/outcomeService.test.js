@@ -170,6 +170,43 @@ test("deduplicates concurrent evaluations for the same call", async () => {
   assert.equal(assetQuoteCalls, 1);
 });
 
+test("deduplicates concurrent evaluations before an async repository lookup", async () => {
+  let repositoryReads = 0;
+  let assetQuoteCalls = 0;
+  const repository = {
+    async get() {
+      repositoryReads += 1;
+      await new Promise(resolve => setTimeout(resolve, 5));
+      return null;
+    },
+    async set() {}
+  };
+  const snapshotService = {
+    async captureForVideoCall() {
+      return { snapshot: createSnapshot() };
+    },
+    async captureFromVerifiedTimestamp() {
+      return { snapshot: createSnapshot({ snapshotId: "ms_spy", price: 200 }) };
+    }
+  };
+  const provider = {
+    async getQuote(symbol) {
+      if (symbol === "NVDA") assetQuoteCalls += 1;
+      return { current: { price: symbol === "SPY" ? 210 : 110, timestamp: 1788345123 } };
+    },
+    async getHistoricalBars() {
+      return { bars: [] };
+    }
+  };
+  const service = new OutcomeService({ provider, snapshotService, repository });
+  const input = createEvaluationInput();
+
+  await Promise.all([service.evaluate(input), service.evaluate(input)]);
+
+  assert.equal(repositoryReads, 1);
+  assert.equal(assetQuoteCalls, 1);
+});
+
 test("returns core outcome values when optional provider data is rate limited", async () => {
   const rateLimit = Object.assign(new Error("rate limited"), {
     code: "PROVIDER_RATE_LIMIT",

@@ -103,6 +103,24 @@ class OutcomeService {
       return this.locks.get(cacheKey);
     }
 
+    const evaluation = this.evaluateFromCacheOrProvider({
+      videoId,
+      candidate,
+      classification,
+      cacheKey
+    });
+    this.locks.set(cacheKey, evaluation);
+    try {
+      return await evaluation;
+    } finally {
+      if (this.locks.get(cacheKey) === evaluation) {
+        this.locks.delete(cacheKey);
+      }
+    }
+  }
+
+  async evaluateFromCacheOrProvider({ videoId, candidate, classification, cacheKey }) {
+    const now = this.clock().getTime();
     const stored = this.repository
       ? await this.repository.get(videoId, candidate.callId)
       : null;
@@ -113,23 +131,14 @@ class OutcomeService {
       });
       return { ...stored.outcome, cache_hit: true, cache_source: "disk" };
     }
-    if (this.locks.has(cacheKey)) {
-      return this.locks.get(cacheKey);
-    }
 
-    const evaluation = this.evaluateAndCache({
+    return this.evaluateAndCache({
       videoId,
       candidate,
       classification,
       cacheKey,
       stored
     });
-    this.locks.set(cacheKey, evaluation);
-    try {
-      return await evaluation;
-    } finally {
-      this.locks.delete(cacheKey);
-    }
   }
 
   async evaluateAndCache({ videoId, candidate, classification, cacheKey, stored }) {

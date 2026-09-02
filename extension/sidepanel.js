@@ -1080,7 +1080,7 @@ function renderCompanyInspector(key) {
     ? "Veröffentlichungsdatum des Videos"
     : "Frühestes gespeichertes Analysedatum";
 
-  reportInspector.innerHTML = `
+  const inspectorMarkup = `
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Unternehmenshistorie</div>
@@ -1108,6 +1108,7 @@ function renderCompanyInspector(key) {
       ).join("")}
     </div>
   `;
+  replaceChildrenFromEscapedMarkup(reportInspector, inspectorMarkup);
 
   openReportInspector();
   hydrateOpenOutcomeCards();
@@ -1125,7 +1126,7 @@ function renderVideoInspector(videoId) {
     `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
   const companies = Array.isArray(video.companies) ? video.companies : [];
 
-  reportInspector.innerHTML = `
+  const inspectorMarkup = `
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Vollständiger Analysebericht</div>
@@ -1150,6 +1151,7 @@ function renderVideoInspector(videoId) {
         : '<p class="report-empty">Keine Unternehmen erkannt.</p>'}
     </div>
   `;
+  replaceChildrenFromEscapedMarkup(reportInspector, inspectorMarkup);
 
   openReportInspector();
   hydrateOpenOutcomeCards();
@@ -1229,15 +1231,23 @@ async function hydrateOpenOutcomeCards() {
       }
 
       card.className = `outcome-card ${Number(outcome.current_return_pct) >= 0 ? "is-positive" : "is-negative"}`;
-      card.innerHTML = renderOutcome(outcome);
+      renderOutcomeCard(card, outcome);
       card.dataset.loaded = "true";
     } catch (error) {
       card.className = "outcome-card is-unavailable";
       if (error.code === "PROVIDER_RATE_LIMIT") {
         const retryAfter = Number(error.retryAfterSeconds) || 60;
-        card.innerHTML = `API-Limit erreicht · in etwa ${retryAfter} Sekunden erneut versuchen. <button type="button" data-retry-outcome>Erneut versuchen</button>`;
+        renderOutcomeRetry(
+          card,
+          `API-Limit erreicht · in etwa ${retryAfter} Sekunden erneut versuchen.`,
+          "Erneut versuchen"
+        );
       } else if (error.retryable) {
-        card.innerHTML = `Marktdaten derzeit nicht verfügbar. <button type="button" data-retry-outcome>Erneut versuchen</button>`;
+        renderOutcomeRetry(
+          card,
+          "Marktdaten derzeit nicht verfügbar.",
+          "Erneut versuchen"
+        );
       } else {
         card.textContent = error.message || "Marktdaten nicht verfügbar.";
       }
@@ -1246,7 +1256,7 @@ async function hydrateOpenOutcomeCards() {
   }
 }
 
-function renderOutcome(outcome) {
+function renderOutcomeCard(card, outcome) {
   const currency = outcome.currency || "";
   const heading = outcome.performance_eligible
     ? "Performance seit Call"
@@ -1265,19 +1275,95 @@ function renderOutcome(outcome) {
       : null
   ].filter(Boolean);
 
-  return `
-    <div class="outcome-heading"><span>${escapeHtml(heading)}</span><small>${escapeHtml(outcome.ticker)}</small></div>
-    <div class="outcome-prices">
-      <div><span>Damals</span><strong>${escapeHtml(formatAmount(outcome.price_at_video, currency))}</strong><time datetime="${escapeHtml(outcome.price_at_video_timestamp)}">${escapeHtml(formatDateTime(outcome.price_at_video_timestamp))}</time></div>
-      <div><span>Aktuell</span><strong>${escapeHtml(formatAmount(outcome.current_price, currency))}</strong><time datetime="${escapeHtml(outcome.current_price_timestamp)}">${escapeHtml(formatDateTime(outcome.current_price_timestamp))}</time></div>
-      <div><span>Rendite</span><strong>${escapeHtml(returnValue)}</strong></div>
-    </div>
-    ${advancedMetrics.length
-      ? `<div class="outcome-metrics">${advancedMetrics.map(value => `<span>${escapeHtml(value)}</span>`).join("")}</div>`
-      : '<div class="outcome-metrics"><span>Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen.</span></div>'}
-    ${outcome.status === "partial" ? '<div class="outcome-warning">Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert. <button type="button" data-retry-outcome>Nach 60 Sekunden erneut versuchen</button></div>' : ""}
-    ${outcome.status === "stale" ? '<div class="outcome-warning">Gespeicherter letzter Stand · Live-Aktualisierung wartet auf den API-Reset. <button type="button" data-retry-outcome>Erneut versuchen</button></div>' : ""}
-  `;
+  card.replaceChildren();
+
+  const headingElement = document.createElement("div");
+  headingElement.className = "outcome-heading";
+  appendTextElement(headingElement, "span", heading);
+  appendTextElement(headingElement, "small", outcome.ticker || "");
+  card.append(headingElement);
+
+  const prices = document.createElement("div");
+  prices.className = "outcome-prices";
+  appendOutcomePrice(
+    prices,
+    "Damals",
+    formatAmount(outcome.price_at_video, currency),
+    outcome.price_at_video_timestamp
+  );
+  appendOutcomePrice(
+    prices,
+    "Aktuell",
+    formatAmount(outcome.current_price, currency),
+    outcome.current_price_timestamp
+  );
+  appendOutcomePrice(prices, "Rendite", returnValue);
+  card.append(prices);
+
+  const metrics = document.createElement("div");
+  metrics.className = "outcome-metrics";
+  const metricValues = advancedMetrics.length
+    ? advancedMetrics
+    : ["Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen."];
+  for (const value of metricValues) {
+    appendTextElement(metrics, "span", value);
+  }
+  card.append(metrics);
+
+  if (outcome.status === "partial") {
+    appendOutcomeWarning(
+      card,
+      "Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert.",
+      "Nach 60 Sekunden erneut versuchen"
+    );
+  } else if (outcome.status === "stale") {
+    appendOutcomeWarning(
+      card,
+      "Gespeicherter letzter Stand · Live-Aktualisierung wartet auf den API-Reset.",
+      "Erneut versuchen"
+    );
+  }
+}
+
+function appendTextElement(parent, tagName, value) {
+  const element = document.createElement(tagName);
+  element.textContent = String(value ?? "");
+  parent.append(element);
+  return element;
+}
+
+function appendOutcomePrice(parent, label, amount, timestamp = null) {
+  const column = document.createElement("div");
+  appendTextElement(column, "span", label);
+  appendTextElement(column, "strong", amount);
+  if (timestamp) {
+    const time = appendTextElement(column, "time", formatDateTime(timestamp));
+    time.dateTime = String(timestamp);
+  }
+  parent.append(column);
+}
+
+function appendOutcomeWarning(card, message, buttonLabel) {
+  const warning = document.createElement("div");
+  warning.className = "outcome-warning";
+  warning.append(document.createTextNode(`${message} `));
+  warning.append(createOutcomeRetryButton(buttonLabel));
+  card.append(warning);
+}
+
+function renderOutcomeRetry(card, message, buttonLabel) {
+  card.replaceChildren(
+    document.createTextNode(`${message} `),
+    createOutcomeRetryButton(buttonLabel)
+  );
+}
+
+function createOutcomeRetryButton(label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.retryOutcome = "";
+  button.textContent = label;
+  return button;
 }
 
 function renderCompanyReportContent(report) {
@@ -1356,7 +1442,16 @@ function openReportInspector() {
 
 function closeReportInspector() {
   reportInspector.classList.add("hidden");
-  reportInspector.innerHTML = "";
+  reportInspector.replaceChildren();
+}
+
+function replaceChildrenFromEscapedMarkup(element, markup) {
+  const parsed = new DOMParser().parseFromString(String(markup), "text/html");
+  const fragment = document.createDocumentFragment();
+  for (const child of parsed.body.childNodes) {
+    fragment.append(document.importNode(child, true));
+  }
+  element.replaceChildren(fragment);
 }
 
 function sentimentLabel(value) {
