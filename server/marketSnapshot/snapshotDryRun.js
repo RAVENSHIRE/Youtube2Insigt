@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveInstrumentIdentity } = require("../instruments/instrumentResolver");
 const { normalizeExactTimestamp } = require("./snapshotSchema");
 
 function sha256(value) {
@@ -53,7 +54,8 @@ function resolveSnapshotCandidate(sourceVideos, { videoId, companyIndex }) {
     );
   }
 
-  const ticker = cleanString(company.ticker)?.toUpperCase() || null;
+  const instrumentIdentity = resolveInstrumentIdentity(company);
+  const ticker = instrumentIdentity.provider_symbols.historical;
   if (!ticker) {
     throw new SnapshotCandidateError(
       "Unternehmensreport besitzt keinen eindeutigen Ticker.",
@@ -66,7 +68,9 @@ function resolveSnapshotCandidate(sourceVideos, { videoId, companyIndex }) {
     videoId,
     companyIndex,
     company: cleanString(company.company),
+    reportedTicker: instrumentIdentity.reported_symbol,
     ticker,
+    instrument_identity: instrumentIdentity,
     callId: cleanString(company.call_id) || createCallId(videoId, ticker, companyIndex)
   };
 }
@@ -117,7 +121,8 @@ function createSnapshotDryRun(sourceVideos, source = {}) {
 
     companies.forEach((company, companyIndex) => {
       companyCount += 1;
-      const ticker = cleanString(company?.ticker)?.toUpperCase() || null;
+      const instrumentIdentity = resolveInstrumentIdentity(company);
+      const ticker = instrumentIdentity.provider_symbols.historical;
 
       if (!ticker) {
         missingTickerCount += 1;
@@ -136,7 +141,9 @@ function createSnapshotDryRun(sourceVideos, source = {}) {
         videoId,
         companyIndex,
         company: cleanString(company?.company),
+        reportedTicker: instrumentIdentity.reported_symbol,
         ticker,
+        instrument_identity: instrumentIdentity,
         storedPublishedAt: publishedAt,
         storedTimestampStatus: publicationStatus,
         nextAction: "fetch_youtube_published_at_then_market_snapshot"

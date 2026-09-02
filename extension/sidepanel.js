@@ -1230,7 +1230,14 @@ async function hydrateOpenOutcomeCards() {
         }
       }
 
-      card.className = `outcome-card ${Number(outcome.current_return_pct) >= 0 ? "is-positive" : "is-negative"}`;
+      const returnNumber = normalizeOutcomeReturn(outcome);
+      card.className = `outcome-card ${
+        returnNumber === null
+          ? "is-lifecycle"
+          : returnNumber >= 0
+            ? "is-positive"
+            : "is-negative"
+      }`;
       renderOutcomeCard(card, outcome);
       card.dataset.loaded = "true";
     } catch (error) {
@@ -1258,10 +1265,16 @@ async function hydrateOpenOutcomeCards() {
 
 function renderOutcomeCard(card, outcome) {
   const currency = outcome.currency || "";
-  const heading = outcome.performance_eligible
+  const isLifecyclePending = outcome.status === "instrument_lifecycle_pending";
+  const heading = isLifecyclePending
+    ? "Instrument-Lifecycle offen"
+    : outcome.performance_eligible
     ? "Performance seit Call"
     : "Marktverlauf seit Erwähnung";
-  const returnValue = `${Number(outcome.current_return_pct) >= 0 ? "+" : ""}${formatNumber(outcome.current_return_pct)} %`;
+  const returnNumber = normalizeOutcomeReturn(outcome);
+  const returnValue = returnNumber === null
+    ? "Kontinuität prüfen"
+    : `${returnNumber >= 0 ? "+" : ""}${formatNumber(returnNumber)} %`;
 
   const advancedMetrics = [
     outcome.peak_return_pct != null
@@ -1280,7 +1293,7 @@ function renderOutcomeCard(card, outcome) {
   const headingElement = document.createElement("div");
   headingElement.className = "outcome-heading";
   appendTextElement(headingElement, "span", heading);
-  appendTextElement(headingElement, "small", outcome.ticker || "");
+  appendTextElement(headingElement, "small", formatOutcomeSymbol(outcome));
   card.append(headingElement);
 
   const prices = document.createElement("div");
@@ -1294,7 +1307,9 @@ function renderOutcomeCard(card, outcome) {
   appendOutcomePrice(
     prices,
     "Aktuell",
-    formatAmount(outcome.current_price, currency),
+    isLifecyclePending && outcome.current_price == null
+      ? outcome.current_symbol || "Symbol offen"
+      : formatAmount(outcome.current_price, currency),
     outcome.current_price_timestamp
   );
   appendOutcomePrice(prices, "Rendite", returnValue);
@@ -1322,7 +1337,33 @@ function renderOutcomeCard(card, outcome) {
       "Gespeicherter letzter Stand · Live-Aktualisierung wartet auf den API-Reset.",
       "Erneut versuchen"
     );
+  } else if (isLifecyclePending) {
+    appendOutcomeWarning(
+      card,
+      "Symbolwechsel erkannt. Performance wird erst berechnet, wenn die wirtschaftliche Kontinuität geprüft ist.",
+      "Erneut versuchen"
+    );
   }
+}
+
+function normalizeOutcomeReturn(outcome) {
+  if (outcome.current_return_pct === null || outcome.current_return_pct === undefined) {
+    return null;
+  }
+
+  const number = Number(outcome.current_return_pct);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatOutcomeSymbol(outcome) {
+  const from = outcome.symbol_at_video;
+  const to = outcome.current_symbol;
+
+  if (from && to && from !== to) {
+    return `${from} → ${to}`;
+  }
+
+  return outcome.ticker || from || to || "";
 }
 
 function appendTextElement(parent, tagName, value) {

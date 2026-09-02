@@ -2,6 +2,10 @@ const OUTCOME_METHOD_VERSION = 1;
 const DEFAULT_BENCHMARK = "SPY";
 const DEFAULT_CACHE_TTL_MS = 5 * 60_000;
 const PARTIAL_CACHE_TTL_MS = 60_000;
+const {
+  isLifecyclePerformanceBlocked,
+  resolveInstrumentIdentity
+} = require("../instruments/instrumentResolver");
 
 function positiveNumber(value, field) {
   const number = Number(value);
@@ -70,6 +74,65 @@ function calculateMaxDrawdown(entryPrice, bars = [], currentPrice = null) {
     maxDrawdown = Math.min(maxDrawdown, (close / peak - 1) * 100);
   }
   return percentage(maxDrawdown);
+}
+
+function createInstrumentInput(candidate = {}) {
+  const identity = candidate.instrument_identity || {};
+  return {
+    company: candidate.company,
+    ticker: candidate.reportedTicker ||
+      candidate.reported_symbol ||
+      identity.reported_symbol ||
+      candidate.ticker
+  };
+}
+
+function createLifecyclePendingOutcome({
+  videoId,
+  candidate,
+  classification,
+  identity,
+  evaluatedAt,
+  snapshot = null
+}) {
+  const market = snapshot?.market_snapshot || {};
+
+  return {
+    schema_version: 1,
+    method_version: OUTCOME_METHOD_VERSION,
+    status: "instrument_lifecycle_pending",
+    cache_hit: false,
+    cache_source: "instrument_registry",
+    evaluated_at: evaluatedAt,
+    video_id: videoId,
+    company_index: candidate.companyIndex,
+    company: candidate.company,
+    ticker: identity.symbol_at_video || candidate.ticker,
+    reported_symbol: identity.reported_symbol,
+    symbol_at_video: identity.symbol_at_video,
+    current_symbol: identity.current_symbol,
+    call_id: candidate.callId,
+    call_type: classification.call_type,
+    performance_eligible: false,
+    performance_tracking_blocked: true,
+    tracking_block_reason: "instrument_continuity_unverified",
+    market_snapshot_id: snapshot?.snapshot_id || null,
+    price_at_video: market.price_at_video ?? null,
+    price_at_video_timestamp: market.timestamp || null,
+    current_price: null,
+    current_price_timestamp: null,
+    current_price_timestamp_source: null,
+    currency: market.currency || null,
+    exchange: market.exchange || identity.current_exchange || null,
+    current_return_pct: null,
+    peak_price: null,
+    peak_return_pct: null,
+    max_drawdown_pct: null,
+    benchmark: null,
+    instrument_identity: identity,
+    warnings: identity.warnings,
+    data_source: "instrument_registry"
+  };
 }
 
 class OutcomeService {
@@ -200,15 +263,71 @@ class OutcomeService {
   }
 
   async evaluateFresh({ videoId, candidate, classification }) {
-    const captured = await this.snapshotService.captureForVideoCall({
-      videoId,
-      callId: candidate.callId,
-      ticker: candidate.ticker
-    });
-    const snapshot = captured.snapshot;
-    const entry = snapshot.market_snapshot.price_at_video;
     const evaluatedAt = this.clock().toISOString();
-    const quote = await this.provider.getQuote(candidate.ticker);
+    let publication = null;
+    let instrumentIdentity = candidate.instrument_identity || resolveInstrumentIdentity(
+      createInstrumentInput(candidate),
+      { evaluatedAt }
+    );
+
+    if (typeof this.snapshotService.getVerifiedPublication === "function") {
+      publication = await this.snapshotService.getVerifiedPublication(videoId);
+      instrumentIdentity = resolveInstrumentIdentity(
+        createInstrumentInput(candidate),
+        {
+          publishedAt: publication.publishedAt,
+          evaluatedAt
+        }
+      );
+
+      if (isLifecyclePerformanceBlocked(instrumentIdentity)) {
+        return createLifecyclePendingOutcome({
+          videoId,
+          candidate,
+          classification,
+          identity: instrumentIdentity,
+          evaluatedAt
+        });
+      }
+    }
+
+    const snapshotSymbol = instrumentIdentity.provider_symbols?.historical || candidate.ticker;
+    const captured = publication
+      ? await this.snapshotService.captureFromVerifiedTimestamp({
+          videoId,
+          callId: candidate.callId,
+          ticker: snapshotSymbol,
+          publishedAt: publication.publishedAt,
+          publishedAtSource: publication.publishedAtSource
+        })
+      : await this.snapshotService.captureForVideoCall({
+          videoId,
+          callId: candidate.callId,
+          ticker: snapshotSymbol
+        });
+    const snapshot = captured.snapshot;
+    instrumentIdentity = resolveInstrumentIdentity(
+      createInstrumentInput(candidate),
+      {
+        publishedAt: snapshot.published_at,
+        evaluatedAt
+      }
+    );
+
+    if (isLifecyclePerformanceBlocked(instrumentIdentity)) {
+      return createLifecyclePendingOutcome({
+        videoId,
+        candidate,
+        classification,
+        identity: instrumentIdentity,
+        evaluatedAt,
+        snapshot
+      });
+    }
+
+    const entry = snapshot.market_snapshot.price_at_video;
+    const currentSymbol = instrumentIdentity.provider_symbols?.current || candidate.ticker;
+    const quote = await this.provider.getQuote(currentSymbol);
     const current = positiveNumber(quote.current?.price, "currentPrice");
     const currentTimestamp = normalizeQuoteTimestamp(quote, evaluatedAt);
     const currentReturn = calculateReturn(entry, current);
@@ -218,7 +337,7 @@ class OutcomeService {
 
     try {
       history = await this.provider.getHistoricalBars({
-        symbol: candidate.ticker,
+        symbol: snapshotSymbol,
         startAt: snapshot.market_snapshot.timestamp,
         endAt: evaluatedAt,
         interval: "1day"
@@ -257,7 +376,10 @@ class OutcomeService {
       video_id: videoId,
       company_index: candidate.companyIndex,
       company: candidate.company,
-      ticker: candidate.ticker,
+      ticker: currentSymbol,
+      reported_symbol: instrumentIdentity.reported_symbol,
+      symbol_at_video: instrumentIdentity.symbol_at_video,
+      current_symbol: instrumentIdentity.current_symbol,
       call_id: candidate.callId,
       call_type: classification.call_type,
       performance_eligible: classification.performance_eligible,
@@ -281,6 +403,7 @@ class OutcomeService {
             alpha_pct_points: percentage(currentReturn - benchmark.return_pct)
           }
         : null,
+      instrument_identity: instrumentIdentity,
       warnings,
       data_source: "twelve_data"
     };

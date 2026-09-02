@@ -61,11 +61,7 @@ class MarketSnapshotService {
   }
 
   async captureForVideoCall({ videoId, callId, ticker }) {
-    if (!this.youtubeMetadataService) {
-      throw new Error("YouTubeMetadataService fehlt.");
-    }
-
-    const metadata = await this.youtubeMetadataService.getVideo(videoId);
+    const metadata = await this.getVerifiedPublication(videoId);
 
     return this.captureFromVerifiedTimestamp({
       videoId,
@@ -74,6 +70,14 @@ class MarketSnapshotService {
       publishedAt: metadata.publishedAt,
       publishedAtSource: metadata.publishedAtSource
     });
+  }
+
+  async getVerifiedPublication(videoId) {
+    if (!this.youtubeMetadataService) {
+      throw new Error("YouTubeMetadataService fehlt.");
+    }
+
+    return this.youtubeMetadataService.getVideo(videoId);
   }
 
   async captureFromVerifiedTimestamp({

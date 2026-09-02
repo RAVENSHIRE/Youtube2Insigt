@@ -207,6 +207,119 @@ test("deduplicates concurrent evaluations before an async repository lookup", as
   assert.equal(assetQuoteCalls, 1);
 });
 
+test("corrects a reported symbol before snapshot and quote provider access", async () => {
+  const calls = { snapshotSymbols: [], quoteSymbols: [] };
+  const snapshotService = {
+    async getVerifiedPublication() {
+      return {
+        publishedAt: "2025-04-25T17:05:00.000Z",
+        publishedAtSource: "youtube_api"
+      };
+    },
+    async captureFromVerifiedTimestamp({ ticker }) {
+      calls.snapshotSymbols.push(ticker);
+      return {
+        snapshot: createSnapshot({
+          price: 1.68,
+          timestamp: "2025-04-25T17:05:00.000Z",
+          publishedAt: "2025-04-25T17:05:00.000Z"
+        })
+      };
+    }
+  };
+  const provider = {
+    async getQuote(symbol) {
+      calls.quoteSymbols.push(symbol);
+      return {
+        currency: "USD",
+        exchange: "NASDAQ",
+        current: { price: 2.19, timestamp: 1788345123 }
+      };
+    },
+    async getHistoricalBars() {
+      return { bars: [] };
+    }
+  };
+  const service = new OutcomeService({
+    provider,
+    snapshotService,
+    clock: () => new Date("2026-09-02T15:30:00.000Z")
+  });
+
+  const corrected = await service.evaluate({
+    videoId: "J3Y_JBATcWg",
+    candidate: {
+      callId: "call-rzlb",
+      companyIndex: 4,
+      company: "Resolve AI",
+      reportedTicker: "RZLB",
+      ticker: "RZLV"
+    },
+    classification: {
+      call_type: "actionable",
+      performance_eligible: true
+    }
+  });
+
+  assert.equal(calls.snapshotSymbols[0], "RZLV");
+  assert.equal(calls.quoteSymbols[0], "RZLV");
+  assert.equal(corrected.reported_symbol, "RZLB");
+  assert.equal(corrected.symbol_at_video, "RZLV");
+  assert.equal(corrected.instrument_identity.resolution_status, "symbol_corrected");
+});
+
+test("blocks unverified corporate-action continuity before market provider access", async () => {
+  const calls = { capture: 0, quote: 0, history: 0 };
+  const snapshotService = {
+    async getVerifiedPublication() {
+      return {
+        publishedAt: "2025-04-25T17:05:00.000Z",
+        publishedAtSource: "youtube_api"
+      };
+    },
+    async captureFromVerifiedTimestamp() {
+      calls.capture += 1;
+      throw new Error("snapshot should not be captured before continuity review");
+    }
+  };
+  const provider = {
+    async getQuote() {
+      calls.quote += 1;
+      throw new Error("quote should not be requested");
+    },
+    async getHistoricalBars() {
+      calls.history += 1;
+      throw new Error("history should not be requested");
+    }
+  };
+  const service = new OutcomeService({
+    provider,
+    snapshotService,
+    clock: () => new Date("2026-09-02T15:30:00.000Z")
+  });
+
+  const outcome = await service.evaluate({
+    videoId: "J3Y_JBATcWg",
+    candidate: {
+      callId: "call-cep",
+      companyIndex: 3,
+      company: "Canter Equity Partners",
+      ticker: "CEP"
+    },
+    classification: {
+      call_type: "view",
+      performance_eligible: false
+    }
+  });
+
+  assert.equal(outcome.status, "instrument_lifecycle_pending");
+  assert.equal(outcome.symbol_at_video, "CEP");
+  assert.equal(outcome.current_symbol, "XXI");
+  assert.equal(outcome.current_return_pct, null);
+  assert.equal(outcome.performance_tracking_blocked, true);
+  assert.deepEqual(calls, { capture: 0, quote: 0, history: 0 });
+});
+
 test("returns core outcome values when optional provider data is rate limited", async () => {
   const rateLimit = Object.assign(new Error("rate limited"), {
     code: "PROVIDER_RATE_LIMIT",

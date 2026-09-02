@@ -12,6 +12,10 @@ const {
   classifyCall,
   normalizeConfidence
 } = require("./classification/callClassification");
+const {
+  INSTRUMENT_IDENTITY_VERSION,
+  resolveInstrumentIdentity
+} = require("./instruments/instrumentResolver");
 const { CreatorRepository } = require("./storage/creatorRepository");
 const {
   MarketSnapshotService,
@@ -429,11 +433,28 @@ function normalizeCompany(company) {
     return null;
   }
 
-  const classification = classifyCompany(company);
+  const reportedTicker = cleanString(company.ticker)?.toUpperCase() || null;
+  const instrumentIdentity = resolveInstrumentIdentity({
+    company: name,
+    ticker: reportedTicker
+  });
+  const normalizedTicker = instrumentIdentity.provider_symbols.historical || reportedTicker;
+  const classification = classifyCompany({
+    ...company,
+    ticker: normalizedTicker
+  });
+  const hasManagedInstrument = !["passthrough", "missing_symbol"]
+    .includes(instrumentIdentity.resolution_status);
 
   return {
     company: name,
-    ticker: cleanString(company.ticker)?.toUpperCase() || null,
+    ticker: normalizedTicker,
+    ...(reportedTicker && reportedTicker !== normalizedTicker
+      ? { reported_symbol: reportedTicker }
+      : {}),
+    ...(hasManagedInstrument
+      ? { instrument_identity: instrumentIdentity }
+      : {}),
     asset_type: ASSET_TYPES.has(company.asset_type)
       ? company.asset_type
       : "other",
@@ -1403,7 +1424,9 @@ app.post("/market-snapshots/capture", async (req, res) => {
       created: result.created,
       company_index: candidate.companyIndex,
       company: candidate.company,
+      reported_symbol: candidate.reportedTicker,
       ticker: candidate.ticker,
+      instrument_identity: candidate.instrument_identity,
       snapshot: result.snapshot
     });
   } catch (error) {
@@ -1532,6 +1555,10 @@ app.get("/health", (req, res) => {
       persistentCache: Boolean(outcomeRepository),
       cacheTtlSeconds: 300,
       safeCreditsPerMinute: snapshotProvider.maxRequestsPerMinute
+    },
+    instrumentIdentity: {
+      enabled: true,
+      schemaVersion: INSTRUMENT_IDENTITY_VERSION
     }
   });
 });
