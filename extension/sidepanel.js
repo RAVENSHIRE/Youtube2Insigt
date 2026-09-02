@@ -1,4 +1,5 @@
 const API_URL = "http://localhost:3000";
+const OUTCOME_CACHE_TTL_MS = 60_000;
 
 const COLORS = [
   "#ff5a47",
@@ -45,6 +46,7 @@ let activeCreatorId = null;
 let selectedCreatorId = null;
 let selectedSector = null;
 let selectedSubSector = null;
+const outcomeCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshButton.addEventListener("click", refreshPanel);
@@ -641,7 +643,7 @@ function buildCompanyReports(videos) {
   const companies = new Map();
 
   for (const video of videos) {
-    for (const report of Array.isArray(video.companies) ? video.companies : []) {
+    for (const [companyIndex, report] of (Array.isArray(video.companies) ? video.companies : []).entries()) {
       const company = String(report.company || "").trim();
 
       if (!company) {
@@ -679,6 +681,7 @@ function buildCompanyReports(videos) {
       entry.presentations.push({
         video,
         report,
+        companyIndex,
         presentedAt: video.publishedAt || video.analyzedAt,
         dateSource: video.publishedAt ? "published" : "analyzed"
       });
@@ -950,6 +953,10 @@ function handleCompanyKeyboardSelection(event) {
 }
 
 function handleVideoReportSelection(event) {
+  if (retryOutcome(event)) {
+    return;
+  }
+
   const companyTrigger = event.target.closest("[data-company-key]");
 
   if (companyTrigger) {
@@ -979,9 +986,17 @@ function handleVideoReportSelection(event) {
       showStatus(friendlyError(error), true);
     });
   }
+
+  if (event.target.closest("summary")) {
+    window.setTimeout(hydrateOpenOutcomeCards, 0);
+  }
 }
 
 function handleInspectorClick(event) {
+  if (retryOutcome(event)) {
+    return;
+  }
+
   if (event.target.closest("[data-close-inspector]")) {
     selectedCompanyKey = null;
     selectedVideoId = null;
@@ -998,6 +1013,33 @@ function handleInspectorClick(event) {
       showStatus(friendlyError(error), true);
     });
   }
+
+  if (event.target.closest("summary")) {
+    window.setTimeout(hydrateOpenOutcomeCards, 0);
+  }
+}
+
+function retryOutcome(event) {
+  const trigger = event.target.closest("[data-retry-outcome]");
+
+  if (!trigger) {
+    return false;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  const card = trigger.closest("[data-outcome-card]");
+  if (!card) {
+    return true;
+  }
+
+  const key = `${card.dataset.videoId}:${card.dataset.companyIndex}`;
+  outcomeCache.delete(key);
+  card.dataset.loaded = "false";
+  card.className = "outcome-card is-loading";
+  card.textContent = "Marktdaten werden erneut geladen …";
+  hydrateOpenOutcomeCards();
+  return true;
 }
 
 async function openOrFocusVideo(videoUrl) {
@@ -1038,7 +1080,7 @@ function renderCompanyInspector(key) {
     ? "Veröffentlichungsdatum des Videos"
     : "Frühestes gespeichertes Analysedatum";
 
-  reportInspector.innerHTML = `
+  const inspectorMarkup = `
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Unternehmenshistorie</div>
@@ -1066,8 +1108,10 @@ function renderCompanyInspector(key) {
       ).join("")}
     </div>
   `;
+  replaceChildrenFromEscapedMarkup(reportInspector, inspectorMarkup);
 
   openReportInspector();
+  hydrateOpenOutcomeCards();
 }
 
 function renderVideoInspector(videoId) {
@@ -1082,7 +1126,7 @@ function renderVideoInspector(videoId) {
     `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
   const companies = Array.isArray(video.companies) ? video.companies : [];
 
-  reportInspector.innerHTML = `
+  const inspectorMarkup = `
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Vollständiger Analysebericht</div>
@@ -1103,12 +1147,14 @@ function renderVideoInspector(videoId) {
 
     <div class="report-stack">
       ${companies.length
-        ? companies.map((report, index) => renderCompanyReport(report, index)).join("")
+        ? companies.map((report, index) => renderCompanyReport(report, index, video.id)).join("")
         : '<p class="report-empty">Keine Unternehmen erkannt.</p>'}
     </div>
   `;
+  replaceChildrenFromEscapedMarkup(reportInspector, inspectorMarkup);
 
   openReportInspector();
+  hydrateOpenOutcomeCards();
 }
 
 function renderPresentationReport(presentation, index) {
@@ -1117,12 +1163,13 @@ function renderPresentationReport(presentation, index) {
     `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
 
   return `
-    <details class="report-entry" ${index === 0 ? "open" : ""}>
+    <details class="report-entry" data-outcome-video="${escapeHtml(video.id)}" data-outcome-company="${presentation.companyIndex}" ${index === 0 ? "open" : ""}>
       <summary>
         <span>${escapeHtml(video.title || "Unbenanntes Video")}</span>
         <small>${escapeHtml(formatDate(presentation.presentedAt))}</small>
       </summary>
       <div class="report-entry-body">
+        ${renderOutcomePlaceholder(video.id, presentation.companyIndex)}
         <a class="report-video-link" href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
         ${video.summary ? `<p class="report-context">${escapeHtml(video.summary)}</p>` : ""}
         ${renderCompanyReportContent(report)}
@@ -1131,9 +1178,9 @@ function renderPresentationReport(presentation, index) {
   `;
 }
 
-function renderCompanyReport(report, index) {
+function renderCompanyReport(report, index, videoId) {
   return `
-    <details class="report-entry" ${index === 0 ? "open" : ""}>
+    <details class="report-entry" data-outcome-video="${escapeHtml(videoId)}" data-outcome-company="${index}" ${index === 0 ? "open" : ""}>
       <summary>
         <span class="report-entry-identity">
           <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
@@ -1142,9 +1189,181 @@ function renderCompanyReport(report, index) {
           ${renderSentimentBadge(report.sentiment)}
         </span>
       </summary>
-      <div class="report-entry-body">${renderCompanyReportContent(report)}</div>
+      <div class="report-entry-body">${renderOutcomePlaceholder(videoId, index)}${renderCompanyReportContent(report)}</div>
     </details>
   `;
+}
+
+function renderOutcomePlaceholder(videoId, companyIndex) {
+  return `<section class="outcome-card is-loading" data-outcome-card data-video-id="${escapeHtml(videoId)}" data-company-index="${companyIndex}">Marktdaten werden geladen …</section>`;
+}
+
+async function hydrateOpenOutcomeCards() {
+  const cards = [...reportInspector.querySelectorAll("details[open] [data-outcome-card]")];
+
+  for (const card of cards) {
+    if (["true", "loading"].includes(card.dataset.loaded)) continue;
+    card.dataset.loaded = "loading";
+    const key = `${card.dataset.videoId}:${card.dataset.companyIndex}`;
+
+    try {
+      const cached = outcomeCache.get(key);
+      let outcome = cached && cached.expiresAt > Date.now()
+        ? cached.outcome
+        : null;
+      if (!outcome) {
+        outcomeCache.delete(key);
+        const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
+        outcome = await parseResponse(response);
+        if (!response.ok) {
+          const error = new Error(outcome.error || "Marktdaten nicht verfügbar.");
+          error.code = outcome.code;
+          error.retryable = Boolean(outcome.retryable);
+          error.retryAfterSeconds = outcome.retry_after_seconds;
+          throw error;
+        }
+        if (outcome.status !== "partial") {
+          outcomeCache.set(key, {
+            expiresAt: Date.now() + OUTCOME_CACHE_TTL_MS,
+            outcome
+          });
+        }
+      }
+
+      card.className = `outcome-card ${Number(outcome.current_return_pct) >= 0 ? "is-positive" : "is-negative"}`;
+      renderOutcomeCard(card, outcome);
+      card.dataset.loaded = "true";
+    } catch (error) {
+      card.className = "outcome-card is-unavailable";
+      if (error.code === "PROVIDER_RATE_LIMIT") {
+        const retryAfter = Number(error.retryAfterSeconds) || 60;
+        renderOutcomeRetry(
+          card,
+          `API-Limit erreicht · in etwa ${retryAfter} Sekunden erneut versuchen.`,
+          "Erneut versuchen"
+        );
+      } else if (error.retryable) {
+        renderOutcomeRetry(
+          card,
+          "Marktdaten derzeit nicht verfügbar.",
+          "Erneut versuchen"
+        );
+      } else {
+        card.textContent = error.message || "Marktdaten nicht verfügbar.";
+      }
+      card.dataset.loaded = "true";
+    }
+  }
+}
+
+function renderOutcomeCard(card, outcome) {
+  const currency = outcome.currency || "";
+  const heading = outcome.performance_eligible
+    ? "Performance seit Call"
+    : "Marktverlauf seit Erwähnung";
+  const returnValue = `${Number(outcome.current_return_pct) >= 0 ? "+" : ""}${formatNumber(outcome.current_return_pct)} %`;
+
+  const advancedMetrics = [
+    outcome.peak_return_pct != null
+      ? `Peak ${formatNumber(outcome.peak_return_pct)} %`
+      : null,
+    outcome.max_drawdown_pct != null
+      ? `Drawdown ${formatNumber(outcome.max_drawdown_pct)} %`
+      : null,
+    outcome.benchmark
+      ? `Alpha ${formatNumber(outcome.benchmark.alpha_pct_points)} pp`
+      : null
+  ].filter(Boolean);
+
+  card.replaceChildren();
+
+  const headingElement = document.createElement("div");
+  headingElement.className = "outcome-heading";
+  appendTextElement(headingElement, "span", heading);
+  appendTextElement(headingElement, "small", outcome.ticker || "");
+  card.append(headingElement);
+
+  const prices = document.createElement("div");
+  prices.className = "outcome-prices";
+  appendOutcomePrice(
+    prices,
+    "Damals",
+    formatAmount(outcome.price_at_video, currency),
+    outcome.price_at_video_timestamp
+  );
+  appendOutcomePrice(
+    prices,
+    "Aktuell",
+    formatAmount(outcome.current_price, currency),
+    outcome.current_price_timestamp
+  );
+  appendOutcomePrice(prices, "Rendite", returnValue);
+  card.append(prices);
+
+  const metrics = document.createElement("div");
+  metrics.className = "outcome-metrics";
+  const metricValues = advancedMetrics.length
+    ? advancedMetrics
+    : ["Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen."];
+  for (const value of metricValues) {
+    appendTextElement(metrics, "span", value);
+  }
+  card.append(metrics);
+
+  if (outcome.status === "partial") {
+    appendOutcomeWarning(
+      card,
+      "Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert.",
+      "Nach 60 Sekunden erneut versuchen"
+    );
+  } else if (outcome.status === "stale") {
+    appendOutcomeWarning(
+      card,
+      "Gespeicherter letzter Stand · Live-Aktualisierung wartet auf den API-Reset.",
+      "Erneut versuchen"
+    );
+  }
+}
+
+function appendTextElement(parent, tagName, value) {
+  const element = document.createElement(tagName);
+  element.textContent = String(value ?? "");
+  parent.append(element);
+  return element;
+}
+
+function appendOutcomePrice(parent, label, amount, timestamp = null) {
+  const column = document.createElement("div");
+  appendTextElement(column, "span", label);
+  appendTextElement(column, "strong", amount);
+  if (timestamp) {
+    const time = appendTextElement(column, "time", formatDateTime(timestamp));
+    time.dateTime = String(timestamp);
+  }
+  parent.append(column);
+}
+
+function appendOutcomeWarning(card, message, buttonLabel) {
+  const warning = document.createElement("div");
+  warning.className = "outcome-warning";
+  warning.append(document.createTextNode(`${message} `));
+  warning.append(createOutcomeRetryButton(buttonLabel));
+  card.append(warning);
+}
+
+function renderOutcomeRetry(card, message, buttonLabel) {
+  card.replaceChildren(
+    document.createTextNode(`${message} `),
+    createOutcomeRetryButton(buttonLabel)
+  );
+}
+
+function createOutcomeRetryButton(label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.retryOutcome = "";
+  button.textContent = label;
+  return button;
 }
 
 function renderCompanyReportContent(report) {
@@ -1223,7 +1442,16 @@ function openReportInspector() {
 
 function closeReportInspector() {
   reportInspector.classList.add("hidden");
-  reportInspector.innerHTML = "";
+  reportInspector.replaceChildren();
+}
+
+function replaceChildrenFromEscapedMarkup(element, markup) {
+  const parsed = new DOMParser().parseFromString(String(markup), "text/html");
+  const fragment = document.createDocumentFragment();
+  for (const child of parsed.body.childNodes) {
+    fragment.append(document.importNode(child, true));
+  }
+  element.replaceChildren(fragment);
 }
 
 function sentimentLabel(value) {
@@ -1471,6 +1699,25 @@ function formatDate(value) {
     month: "short",
     year: "numeric"
   }).format(date);
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Zeitpunkt unbekannt";
+  }
+
+  return `${new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "Europe/Zurich"
+  }).format(date)} Zürich`;
 }
 
 function isYouTubeWatchUrl(value) {

@@ -10,7 +10,7 @@
 
 **Verifizierter Teststand:** `feature/live-market-snapshot-proof`<br>
 **Backend:** Analysis Version 6, Creator Storage v2, Market Snapshot Schema v1<br>
-**Testabdeckung:** 47 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
+**Testabdeckung:** 51 automatisierte Tests plus lokaler Chrome-Sidepanel-Test<br>
 **Aktueller Datensatz:** 3 Creator und 10 analysierte Videos im isolierten Creator-Staging
 
 | Bereich | Status | Ergebnis / nächster Nachweis |
@@ -24,7 +24,7 @@
 | Market Snapshot Foundation | Implementiert | unveränderliches Schema, Repository, YouTube-Zeitstempel-Service, Marktdaten-Provider und API-Endpunkte |
 | Market Snapshot Live-Nachweis | Verifiziert | NVDA-Live-Snapshot mit YouTube-Zeitstempel und Twelve Data erfasst; HTTP-201-Write, idempotenter HTTP-200-Replay und identischer Read-back bestätigt |
 | Call Classification | Implementiert – UI-Test offen | Schema v7, deterministische Eligibility-Regeln, Legacy-Normalisierung und Report-Badges vorhanden |
-| Outcome Engine | Offen – P0 | Return, Peak Return, Drawdown und Benchmark Alpha berechnen |
+| Outcome Engine | Implementiert – Live-UI-Test offen | Publikationspreis, Live-Preis, Return, Peak, Drawdown und SPY-Alpha per Lazy-Load im vollständigen Report |
 | Creator Track Record | Blockiert durch Outcomes | erst nach genügend fälligen, klassifizierten Calls bewerten |
 
 Der aktuelle Panel-Stand bleibt die stabile Produktbasis. Neue P0-Arbeit wird in
@@ -448,7 +448,7 @@ Das Ranking folgt erst, wenn Vertrauen, Datenqualität und Methodik bewiesen sin
 |---:|---|---|
 | 1 | Market Snapshot Foundation | abgeschlossen; Live-Provider-Lauf, unveränderlicher Write, Replay und Read-back am 2. September 2026 verifiziert |
 | 2 | Call Classification | auf `feature/call-classification` implementiert; lokaler Chrome-Test offen |
-| 3 | Outcome Engine | offen; baut auf 1 und 2 auf |
+| 3 | Outcome Engine | API und vollständiger Report implementiert; echter UI-/Provider-Test offen |
 | 4 | Report-Mix Performance Cards | offen; erster sichtbarer Outcome-Nutzen |
 | 5 | Best/Worst Calls und Call Timeline | offen |
 | 6 | Creator Track Record | offen; benötigt ausreichende fällige Stichprobe |

@@ -154,10 +154,11 @@ class MarketSnapshotService {
           code: error?.code || "PROVIDER_ERROR"
         });
 
-        if (error?.retryable || ["INVALID_SYMBOL", "PROVIDER_NOT_CONFIGURED"].includes(error?.code)) {
-          throw error;
-        }
-        continue;
+        // A provider/API failure is independent of the requested bar interval.
+        // Trying all fallback intervals would only spend more credits for the
+        // same failed symbol. Interval fallback is reserved for valid, empty
+        // responses where no tradable bar was found.
+        throw error;
       }
 
       const bar = selectFirstTradableBar(result.bars, normalizedPublishedAt);

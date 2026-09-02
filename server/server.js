@@ -19,6 +19,8 @@ const {
 } = require("./marketSnapshot/marketSnapshotService");
 const { SnapshotRepository } = require("./marketSnapshot/snapshotRepository");
 const { SnapshotValidationError } = require("./marketSnapshot/snapshotSchema");
+const { OutcomeService } = require("./outcomes/outcomeService");
+const { OutcomeRepository } = require("./outcomes/outcomeRepository");
 const {
   SnapshotCandidateError,
   resolveSnapshotCandidate
@@ -179,11 +181,21 @@ const youtubeMetadataService = new YouTubeMetadataService();
 const snapshotRepository = MARKET_SNAPSHOT_ROOT
   ? new SnapshotRepository(MARKET_SNAPSHOT_ROOT)
   : null;
+const outcomeRepository = MARKET_SNAPSHOT_ROOT
+  ? new OutcomeRepository(MARKET_SNAPSHOT_ROOT)
+  : null;
 const marketSnapshotService = snapshotRepository
   ? new MarketSnapshotService({
       provider: snapshotProvider,
       repository: snapshotRepository,
       youtubeMetadataService
+    })
+  : null;
+const outcomeService = marketSnapshotService
+  ? new OutcomeService({
+      provider: snapshotProvider,
+      snapshotService: marketSnapshotService,
+      repository: outcomeRepository
     })
   : null;
 
@@ -1426,6 +1438,58 @@ app.post("/market-snapshots/capture", async (req, res) => {
   }
 });
 
+app.get("/videos/:videoId/companies/:companyIndex/outcome", async (req, res) => {
+  try {
+    if (!outcomeService) {
+      return res.status(503).json({
+        error: "Outcome Engine ist nicht konfiguriert.",
+        code: "OUTCOME_ENGINE_NOT_CONFIGURED"
+      });
+    }
+
+    const { videoId } = req.params;
+    const companyIndex = Number(req.params.companyIndex);
+    const found = findStoredVideo(videoId);
+    if (!found) {
+      throw new SnapshotCandidateError("Video nicht gefunden.", "VIDEO_NOT_FOUND", 404);
+    }
+    const candidate = resolveSnapshotCandidate({ [videoId]: found.research }, {
+      videoId,
+      companyIndex
+    });
+    const company = found.research.companies[companyIndex];
+    const outcome = await outcomeService.evaluate({
+      videoId,
+      candidate,
+      classification: classifyCall(company)
+    });
+    return res.json(outcome);
+  } catch (error) {
+    if (error?.retryable) {
+      console.warn(`GET OUTCOME ${error.code || "RETRYABLE"}: ${error.message}`);
+    } else {
+      console.error("GET OUTCOME ERROR:", error);
+    }
+    const status = error instanceof SnapshotCandidateError
+      ? error.status
+      : error instanceof SnapshotValidationError
+        ? 400
+        : error instanceof MarketSnapshotUnavailableError
+          ? 422
+          : error instanceof MarketDataProviderError || error instanceof YouTubeMetadataError
+            ? (error.status === 429 ? 429 : 502)
+            : 500;
+    return res.status(status).json({
+      error: error?.code === "PROVIDER_RATE_LIMIT"
+        ? "API-Limit erreicht. Die Marktdaten können nach dem Minuten-Reset erneut geladen werden."
+        : error.message || "Outcome konnte nicht berechnet werden.",
+      code: error.code || "OUTCOME_EVALUATION_FAILED",
+      retryable: Boolean(error.retryable),
+      retry_after_seconds: error.retryAfterSeconds || (error.retryable ? 60 : null)
+    });
+  }
+});
+
 app.get("/market", async (req, res) => {
   try {
     const symbol = String(req.query.symbol || "")
@@ -1460,6 +1524,14 @@ app.get("/health", (req, res) => {
     marketSnapshots: {
       enabled: Boolean(marketSnapshotService),
       schemaVersion: 1
+    },
+    outcomeEngine: {
+      enabled: Boolean(outcomeService),
+      methodVersion: 1,
+      benchmark: "SPY",
+      persistentCache: Boolean(outcomeRepository),
+      cacheTtlSeconds: 300,
+      safeCreditsPerMinute: snapshotProvider.maxRequestsPerMinute
     }
   });
 });
