@@ -70,6 +70,57 @@
           <span id="videoCount" class="count-badge"></span>
         </div>
 
+        <form id="libraryControls" class="library-controls" role="search">
+          <label class="library-search">
+            <span class="sr-only">Research Library durchsuchen</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <path d="m16 16 4 4"></path>
+            </svg>
+            <input
+              id="librarySearch"
+              type="search"
+              autocomplete="off"
+              placeholder="Titel, Unternehmen, Ticker oder These"
+            >
+          </label>
+
+          <div class="library-filter-grid">
+            <label>
+              <span>Sortierung</span>
+              <select id="librarySort">
+                <option value="published-desc">Veröffentlichung · Neueste</option>
+                <option value="published-asc">Veröffentlichung · Älteste</option>
+                <option value="analyzed-desc">Analyse · Neueste</option>
+                <option value="analyzed-asc">Analyse · Älteste</option>
+              </select>
+            </label>
+            <label>
+              <span>Sektor</span>
+              <select id="librarySector">
+                <option value="">Alle Sektoren</option>
+              </select>
+            </label>
+            <label>
+              <span>Sentiment</span>
+              <select id="librarySentiment">
+                <option value="">Alle Sentiments</option>
+              </select>
+            </label>
+            <label>
+              <span>Call-Typ</span>
+              <select id="libraryCallType">
+                <option value="">Alle Call-Typen</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="library-control-footer">
+            <span id="libraryResultSummary" aria-live="polite"></span>
+            <button id="libraryReset" type="reset">Filter zurücksetzen</button>
+          </div>
+        </form>
+
         <div id="videoList" class="video-list"></div>
       </section>
     </section>
@@ -86,6 +137,7 @@
     </section>
   </main>
 
+  <script src="research-library.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

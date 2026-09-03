@@ -30,6 +30,14 @@ const refreshButton = document.getElementById("refreshButton");
 const creatorOverview = document.getElementById("creatorOverview");
 const creatorCount = document.getElementById("creatorCount");
 const creatorList = document.getElementById("creatorList");
+const libraryControls = document.getElementById("libraryControls");
+const librarySearch = document.getElementById("librarySearch");
+const librarySort = document.getElementById("librarySort");
+const librarySector = document.getElementById("librarySector");
+const librarySentiment = document.getElementById("librarySentiment");
+const libraryCallType = document.getElementById("libraryCallType");
+const libraryResultSummary = document.getElementById("libraryResultSummary");
+const researchLibrary = globalThis.ResearchLibrary;
 
 let currentVideoId = null;
 let currentMetadata = null;
@@ -46,6 +54,8 @@ let activeCreatorId = null;
 let selectedCreatorId = null;
 let selectedSector = null;
 let selectedSubSector = null;
+let libraryCreatorId = null;
+let libraryState = defaultLibraryState();
 const outcomeCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -56,6 +66,10 @@ document.addEventListener("DOMContentLoaded", () => {
   videoList.addEventListener("click", handleVideoReportSelection);
   reportInspector.addEventListener("click", handleInspectorClick);
   creatorList.addEventListener("click", handleCreatorSelection);
+  libraryControls.addEventListener("input", handleLibraryControls);
+  libraryControls.addEventListener("change", handleLibraryControls);
+  libraryControls.addEventListener("submit", event => event.preventDefault());
+  libraryControls.addEventListener("reset", handleLibraryReset);
   refreshPanel();
 });
 
@@ -560,7 +574,8 @@ function renderDashboard(data) {
 
   renderChannel(channel, data);
   renderCompanyAllocation(visibleCompanyReports);
-  renderVideos(visibleVideos);
+  configureLibraryControls(visibleVideos, channel.creatorId);
+  renderResearchLibrary();
 
   if (selectedVideoId && visibleVideos.some(video => video.id === selectedVideoId)) {
     renderVideoInspector(selectedVideoId);
@@ -570,9 +585,137 @@ function renderDashboard(data) {
     closeReportInspector();
   }
 
-  videoCount.textContent = `${visibleVideos.length} ${visibleVideos.length === 1 ? "Video" : "Videos"}`;
   emptyState.classList.add("hidden");
   dashboardElement.classList.remove("hidden");
+}
+
+function defaultLibraryState() {
+  return {
+    query: "",
+    sort: "published-desc",
+    sector: "",
+    sentiment: "",
+    callType: ""
+  };
+}
+
+function configureLibraryControls(videos, creatorId) {
+  if (!researchLibrary) {
+    throw new Error("Research-Library-Modul konnte nicht geladen werden.");
+  }
+
+  if (libraryCreatorId !== creatorId) {
+    libraryCreatorId = creatorId;
+    libraryState = defaultLibraryState();
+  }
+
+  const facets = researchLibrary.collectResearchFacets(videos);
+  libraryState.sector = facets.sectors.includes(libraryState.sector)
+    ? libraryState.sector
+    : "";
+  libraryState.sentiment = facets.sentiments.includes(libraryState.sentiment)
+    ? libraryState.sentiment
+    : "";
+  libraryState.callType = facets.callTypes.includes(libraryState.callType)
+    ? libraryState.callType
+    : "";
+  setLibraryOptions(librarySector, "Alle Sektoren", facets.sectors);
+  setLibraryOptions(
+    librarySentiment,
+    "Alle Sentiments",
+    facets.sentiments,
+    sentimentLabel
+  );
+  setLibraryOptions(
+    libraryCallType,
+    "Alle Call-Typen",
+    facets.callTypes,
+    callTypeLabel
+  );
+  syncLibraryControls();
+}
+
+function setLibraryOptions(select, emptyLabel, values, labelFor = value => value) {
+  const selectedValue = select.value;
+  select.innerHTML = [
+    `<option value="">${escapeHtml(emptyLabel)}</option>`,
+    ...values.map(value =>
+      `<option value="${escapeHtml(value)}">${escapeHtml(labelFor(value))}</option>`
+    )
+  ].join("");
+
+  if (values.includes(selectedValue)) {
+    select.value = selectedValue;
+  }
+}
+
+function syncLibraryControls() {
+  librarySearch.value = libraryState.query;
+  librarySort.value = libraryState.sort;
+  librarySector.value = libraryState.sector;
+  librarySentiment.value = libraryState.sentiment;
+  libraryCallType.value = libraryState.callType;
+}
+
+function handleLibraryControls(event) {
+  if (event.type === "input" && event.target !== librarySearch) {
+    return;
+  }
+
+  libraryState = {
+    query: librarySearch.value.trim(),
+    sort: librarySort.value,
+    sector: librarySector.value,
+    sentiment: librarySentiment.value,
+    callType: libraryCallType.value
+  };
+  renderResearchLibrary();
+}
+
+function handleLibraryReset(event) {
+  event.preventDefault();
+  libraryState = defaultLibraryState();
+  syncLibraryControls();
+  renderResearchLibrary();
+  librarySearch.focus();
+}
+
+function renderResearchLibrary() {
+  const filteredVideos = researchLibrary.filterResearchVideos(
+    visibleVideos,
+    libraryState
+  );
+  const sortedVideos = researchLibrary.sortResearchVideos(
+    filteredVideos,
+    libraryState.sort
+  );
+  const filteredCount = sortedVideos.length;
+  const totalCount = visibleVideos.length;
+
+  renderVideos(sortedVideos);
+  videoCount.textContent = filteredCount === totalCount
+    ? `${totalCount} ${totalCount === 1 ? "Video" : "Videos"}`
+    : `${filteredCount}/${totalCount} Videos`;
+  libraryResultSummary.textContent = filteredCount === totalCount
+    ? `${totalCount} ${totalCount === 1 ? "Report" : "Reports"}`
+    : `${filteredCount} von ${totalCount} Reports`;
+}
+
+function sentimentLabel(value) {
+  return ({
+    bull: "Bullish",
+    neutral: "Neutral",
+    bear: "Bearish"
+  })[value] || value;
+}
+
+function callTypeLabel(value) {
+  return ({
+    mention: "Mention",
+    view: "View",
+    actionable: "Actionable",
+    targeted: "Targeted"
+  })[value] || value;
 }
 
 function renderChannel(channel, data) {
@@ -815,6 +958,16 @@ function renderCompanyAllocation(companies) {
 }
 
 function renderVideos(videos) {
+  if (!videos.length) {
+    videoList.innerHTML = `
+      <div class="library-empty">
+        <strong>Keine passenden Reports</strong>
+        <span>Ändere die Suche oder setze die Filter zurück.</span>
+      </div>
+    `;
+    return;
+  }
+
   videoList.innerHTML = videos.map((video, index) => {
     const companies = Array.isArray(video.companies) ? video.companies : [];
     const chart = buildDonut(companies, () => 1);
@@ -824,15 +977,17 @@ function renderVideos(videos) {
     const creator = video.creator || "Unbekannter Kanal";
     const date = formatDate(video.publishedAt || video.analyzedAt);
     const isCurrent = video.id === currentVideoId;
+    const reportNumber = Number(video.analysisSequence) || index + 1;
 
     return `
       <article class="video-item ${isCurrent ? "is-current" : ""}" data-video-id="${escapeHtml(video.id)}">
         <div class="video-top">
           <div class="video-copy">
             <div class="video-meta">
-              <span>${isCurrent ? "Aktuelles Video" : `Report ${String(index + 1).padStart(2, "0")}`}</span>
+              <span>Report ${String(reportNumber).padStart(2, "0")}</span>
               <i class="meta-divider" aria-hidden="true"></i>
               <span>${escapeHtml(date)}</span>
+              ${isCurrent ? '<span class="current-video-label">Aktuelles Video</span>' : ""}
             </div>
             <h2 class="video-title">
               <a href="${escapeHtml(videoUrl)}" data-video-report="${escapeHtml(video.id)}" data-open-video>${escapeHtml(title)}</a>

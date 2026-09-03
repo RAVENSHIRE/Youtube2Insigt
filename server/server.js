@@ -20,7 +20,10 @@ const {
   projectCompanyForRead,
   projectResearchForRead
 } = require("./instruments/instrumentProjection");
-const { sortResearchTimeline } = require("./presentation/researchTimeline");
+const {
+  assignResearchSequences,
+  sortResearchTimeline
+} = require("./presentation/researchTimeline");
 const { CreatorRepository } = require("./storage/creatorRepository");
 const {
   MarketSnapshotService,
@@ -1083,7 +1086,7 @@ function profileToChannel(profile) {
 
 function buildDashboard(videos, creatorProfile = null) {
   const companies = buildCompanyIndex(videos);
-  const dashboardVideos = sortResearchTimeline(Object.values(videos)
+  const projectedVideos = Object.values(videos)
     .filter(research => research?.video?.id)
     .map(projectResearchForRead)
     .map(research => ({
@@ -1111,7 +1114,10 @@ function buildDashboard(videos, creatorProfile = null) {
               : []
           }))
         : []
-    })));
+    }));
+  const dashboardVideos = sortResearchTimeline(
+    assignResearchSequences(projectedVideos)
+  );
 
   const channels = creatorProfile
     ? [profileToChannel(creatorProfile)]
