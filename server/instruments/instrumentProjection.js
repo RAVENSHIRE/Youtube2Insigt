@@ -44,15 +44,43 @@ function projectResearchForRead(research) {
     research.video?.analyzed_at ||
     null;
 
+  const companies = Array.isArray(research.companies)
+    ? research.companies.map(company => projectCompanyForRead(company, publishedAt))
+    : [];
+
   return {
     ...research,
-    companies: Array.isArray(research.companies)
-      ? research.companies.map(company => projectCompanyForRead(company, publishedAt))
-      : []
+    summary: projectCorrectedSymbolsInText(research.summary, companies),
+    companies
   };
+}
+
+function projectCorrectedSymbolsInText(value, companies = []) {
+  if (typeof value !== "string" || !value) {
+    return value;
+  }
+
+  return companies.reduce((text, company) => {
+    const identity = company?.instrument_identity;
+    const reported = cleanString(identity?.reported_symbol);
+    const corrected = cleanString(identity?.symbol_at_video);
+
+    if (
+      identity?.resolution_status !== "symbol_corrected" ||
+      !reported ||
+      !corrected ||
+      reported === corrected
+    ) {
+      return text;
+    }
+
+    const escaped = reported.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return text.replace(new RegExp(`\\b${escaped}\\b`, "gu"), corrected);
+  }, value);
 }
 
 module.exports = {
   projectCompanyForRead,
+  projectCorrectedSymbolsInText,
   projectResearchForRead
 };

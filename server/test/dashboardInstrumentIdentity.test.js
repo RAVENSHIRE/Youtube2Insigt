@@ -16,7 +16,7 @@ function createResearch(companies) {
       published_at: "2025-04-25T17:05:00.000Z",
       analyzed_at: "2026-09-02T15:30:00.000Z"
     },
-    summary: "Stored extraction remains immutable.",
+    summary: "Resolve AI (RZLB) remains traceable in stored extraction.",
     companies
   };
 }
@@ -32,8 +32,11 @@ test("projects corrected symbols into dashboard reads without mutating storage",
   const projected = projectResearchForRead(stored);
 
   assert.equal(stored.companies[0].ticker, "RZLB");
+  assert.match(stored.summary, /RZLB/u);
   assert.equal(projected.companies[0].ticker, "RZLV");
   assert.equal(projected.companies[0].reported_symbol, "RZLB");
+  assert.doesNotMatch(projected.summary, /RZLB/u);
+  assert.match(projected.summary, /RZLV/u);
 });
 
 test("projects lifecycle metadata while retaining the historical SPAC symbol", () => {
