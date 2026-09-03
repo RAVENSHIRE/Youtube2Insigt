@@ -1294,6 +1294,7 @@ button {
 
 .outcome-card.is-positive { border-color: rgba(75, 210, 155, 0.52); }
 .outcome-card.is-negative { border-color: rgba(255, 111, 104, 0.58); }
+.outcome-card.is-lifecycle { border-color: rgba(255, 202, 87, 0.58); }
 .outcome-card.is-loading,
 .outcome-card.is-unavailable { color: var(--muted); }
 

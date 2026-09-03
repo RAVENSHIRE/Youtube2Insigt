@@ -1230,7 +1230,14 @@ async function hydrateOpenOutcomeCards() {
         }
       }
 
-      card.className = `outcome-card ${Number(outcome.current_return_pct) >= 0 ? "is-positive" : "is-negative"}`;
+      const returnNumber = normalizeOutcomeReturn(outcome);
+      card.className = `outcome-card ${
+        returnNumber === null
+          ? "is-lifecycle"
+          : returnNumber >= 0
+            ? "is-positive"
+            : "is-negative"
+      }`;
       renderOutcomeCard(card, outcome);
       card.dataset.loaded = "true";
     } catch (error) {
@@ -1258,10 +1265,16 @@ async function hydrateOpenOutcomeCards() {
 
 function renderOutcomeCard(card, outcome) {
   const currency = outcome.currency || "";
-  const heading = outcome.performance_eligible
+  const isLifecyclePending = outcome.status === "instrument_lifecycle_pending";
+  const heading = isLifecyclePending
+    ? "Instrument-Lifecycle offen"
+    : outcome.performance_eligible
     ? "Performance seit Call"
     : "Marktverlauf seit Erwähnung";
-  const returnValue = `${Number(outcome.current_return_pct) >= 0 ? "+" : ""}${formatNumber(outcome.current_return_pct)} %`;
+  const returnNumber = normalizeOutcomeReturn(outcome);
+  const returnValue = returnNumber === null
+    ? "Kontinuität prüfen"
+    : `${returnNumber >= 0 ? "+" : ""}${formatNumber(returnNumber)} %`;
 
   const advancedMetrics = [
     outcome.peak_return_pct != null
@@ -1280,7 +1293,7 @@ function renderOutcomeCard(card, outcome) {
   const headingElement = document.createElement("div");
   headingElement.className = "outcome-heading";
   appendTextElement(headingElement, "span", heading);
-  appendTextElement(headingElement, "small", outcome.ticker || "");
+  appendTextElement(headingElement, "small", formatOutcomeSymbol(outcome));
   card.append(headingElement);
 
   const prices = document.createElement("div");
@@ -1288,27 +1301,33 @@ function renderOutcomeCard(card, outcome) {
   appendOutcomePrice(
     prices,
     "Damals",
-    formatAmount(outcome.price_at_video, currency),
+    isLifecyclePending && outcome.price_at_video == null
+      ? outcome.symbol_at_video || "—"
+      : formatAmount(outcome.price_at_video, currency),
     outcome.price_at_video_timestamp
   );
   appendOutcomePrice(
     prices,
     "Aktuell",
-    formatAmount(outcome.current_price, currency),
+    isLifecyclePending && outcome.current_price == null
+      ? outcome.current_symbol || "Symbol offen"
+      : formatAmount(outcome.current_price, currency),
     outcome.current_price_timestamp
   );
   appendOutcomePrice(prices, "Rendite", returnValue);
   card.append(prices);
 
-  const metrics = document.createElement("div");
-  metrics.className = "outcome-metrics";
-  const metricValues = advancedMetrics.length
-    ? advancedMetrics
-    : ["Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen."];
-  for (const value of metricValues) {
-    appendTextElement(metrics, "span", value);
+  if (advancedMetrics.length || !isLifecyclePending) {
+    const metrics = document.createElement("div");
+    metrics.className = "outcome-metrics";
+    const metricValues = advancedMetrics.length
+      ? advancedMetrics
+      : ["Erweiterte Kennzahlen werden nach dem Provider-Limit nachgeladen."];
+    for (const value of metricValues) {
+      appendTextElement(metrics, "span", value);
+    }
+    card.append(metrics);
   }
-  card.append(metrics);
 
   if (outcome.status === "partial") {
     appendOutcomeWarning(
@@ -1322,7 +1341,32 @@ function renderOutcomeCard(card, outcome) {
       "Gespeicherter letzter Stand · Live-Aktualisierung wartet auf den API-Reset.",
       "Erneut versuchen"
     );
+  } else if (isLifecyclePending) {
+    appendOutcomeWarning(
+      card,
+      "Symbolwechsel erkannt. Performance wird erst berechnet, wenn die wirtschaftliche Kontinuität geprüft ist."
+    );
   }
+}
+
+function normalizeOutcomeReturn(outcome) {
+  if (outcome.current_return_pct === null || outcome.current_return_pct === undefined) {
+    return null;
+  }
+
+  const number = Number(outcome.current_return_pct);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatOutcomeSymbol(outcome) {
+  const from = outcome.symbol_at_video;
+  const to = outcome.current_symbol;
+
+  if (from && to && from !== to) {
+    return `${from} → ${to}`;
+  }
+
+  return outcome.ticker || from || to || "";
 }
 
 function appendTextElement(parent, tagName, value) {
@@ -1346,8 +1390,11 @@ function appendOutcomePrice(parent, label, amount, timestamp = null) {
 function appendOutcomeWarning(card, message, buttonLabel) {
   const warning = document.createElement("div");
   warning.className = "outcome-warning";
-  warning.append(document.createTextNode(`${message} `));
-  warning.append(createOutcomeRetryButton(buttonLabel));
+  warning.append(document.createTextNode(message));
+  if (buttonLabel) {
+    warning.append(document.createTextNode(" "));
+    warning.append(createOutcomeRetryButton(buttonLabel));
+  }
   card.append(warning);
 }
 
@@ -1367,10 +1414,12 @@ function createOutcomeRetryButton(label) {
 }
 
 function renderCompanyReportContent(report) {
-  const structuredTargets = Array.isArray(report.price_targets) ? report.price_targets : [];
+  const structuredTargets = Array.isArray(report.price_targets)
+    ? report.price_targets.filter(hasUsableStructuredValue)
+    : [];
   const priceTargets = structuredTargets.length
     ? structuredTargets
-    : report.price_target != null
+    : hasUsableStructuredValue({ value: report.price_target })
       ? [{
           value: report.price_target,
           currency: report.price_target_currency || report.currency || null,
@@ -1378,8 +1427,13 @@ function renderCompanyReportContent(report) {
           source: null
         }]
       : [];
-  const levels = Array.isArray(report.levels) ? report.levels : [];
-  const evidence = Array.isArray(report.evidence) ? report.evidence : [];
+  const levels = Array.isArray(report.levels)
+    ? report.levels.filter(hasUsableStructuredValue)
+    : [];
+  const evidence = Array.isArray(report.evidence)
+    ? report.evidence.filter(hasMeaningfulText)
+    : [];
+  const thesis = hasMeaningfulText(report.thesis) ? report.thesis.trim() : null;
   const facts = [
     report.action && report.action !== "none" ? ["Aktion", actionLabel(report.action)] : null,
     report.asset_type ? ["Asset", report.asset_type.toUpperCase()] : null,
@@ -1410,8 +1464,8 @@ function renderCompanyReportContent(report) {
           <div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
         `).join("")}</div>`
       : ""}
-    ${report.thesis
-      ? `<section class="report-section"><h4>Investment-These</h4><p>${escapeHtml(report.thesis)}</p></section>`
+    ${thesis
+      ? `<section class="report-section"><h4>Investment-These</h4><p>${escapeHtml(thesis)}</p></section>`
       : ""}
     ${priceTargets.length
       ? `<section class="report-section"><h4>Kursziele</h4><ul>${priceTargets.map(target => `
@@ -1427,6 +1481,23 @@ function renderCompanyReportContent(report) {
       ? `<section class="report-section"><h4>Belege aus dem Video</h4><ul>${evidence.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`
       : ""}
   `;
+}
+
+function hasUsableStructuredValue(item) {
+  return Boolean(item) &&
+    item.value !== null &&
+    item.value !== undefined &&
+    item.value !== "" &&
+    Number.isFinite(Number(item.value));
+}
+
+function hasMeaningfulText(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const text = value.trim();
+  return Boolean(text) && !/^[#*_~`\-–—.\s]+$/u.test(text);
 }
 
 function renderInspectorCloseButton() {
@@ -1504,10 +1575,18 @@ function levelLabel(value) {
 }
 
 function formatAmount(value, currency) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
   return [formatNumber(value), currency].filter(Boolean).join(" ");
 }
 
 function formatNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
   const number = Number(value);
 
   if (!Number.isFinite(number)) {
