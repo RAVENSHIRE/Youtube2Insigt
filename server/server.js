@@ -16,6 +16,10 @@ const {
   INSTRUMENT_IDENTITY_VERSION,
   resolveInstrumentIdentity
 } = require("./instruments/instrumentResolver");
+const {
+  projectCompanyForRead,
+  projectResearchForRead
+} = require("./instruments/instrumentProjection");
 const { CreatorRepository } = require("./storage/creatorRepository");
 const {
   MarketSnapshotService,
@@ -916,7 +920,11 @@ function buildCompanyIndex(videos) {
       continue;
     }
 
-    for (const company of video.companies) {
+    for (const storedCompany of video.companies) {
+      const company = projectCompanyForRead(
+        storedCompany,
+        video?.video?.published_at || video?.video?.analyzed_at
+      );
       const name = cleanString(company?.company);
 
       if (!name) {
@@ -1076,6 +1084,7 @@ function buildDashboard(videos, creatorProfile = null) {
   const companies = buildCompanyIndex(videos);
   const dashboardVideos = Object.values(videos)
     .filter(research => research?.video?.id)
+    .map(projectResearchForRead)
     .map(research => ({
       id: research.video.id,
       title: research.video.title,
@@ -1310,7 +1319,7 @@ app.get("/videos/:videoId", (req, res) => {
     }
 
     return res.json({
-      ...found.research,
+      ...projectResearchForRead(found.research),
       storage_creator_id: found.creatorId
     });
   } catch (error) {
