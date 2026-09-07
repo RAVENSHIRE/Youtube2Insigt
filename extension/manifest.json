@@ -33,6 +33,7 @@
         "https://www.youtube.com/watch*"
       ],
       "js": [
+        "evidence-player.js",
         "content.js"
       ],
       "run_at": "document_idle"

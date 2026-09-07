@@ -1690,3 +1690,11 @@ button {
     animation-iteration-count: 1 !important;
   }
 }
+:root { --evidence-accent: #6de4c3; }
+.evidence-item { padding: 10px; border: 1px solid transparent; border-radius: 10px; }
+.evidence-item.is-playing { border-color: var(--evidence-accent); background: #173c36; }
+.evidence-item blockquote { margin: 6px 0; }
+.evidence-marker { border: 1px solid var(--evidence-accent); border-radius: 7px; color: #b4ffe9; background: #17352e; padding: 4px 9px; cursor: pointer; }
+.evidence-marker:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+.evidence-legacy small, .evidence-item small { display: block; color: #c3cbd6; margin-top: 5px; }
+.evidence-translation, .report-missing { color: #c3cbd6; font-size: 12px; line-height: 1.5; }

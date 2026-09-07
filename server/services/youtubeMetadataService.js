@@ -47,7 +47,7 @@ class YouTubeMetadataService {
     }
 
     const url = new URL(YOUTUBE_VIDEOS_URL);
-    url.searchParams.set("part", "snippet");
+    url.searchParams.set("part", "snippet,contentDetails");
     url.searchParams.set("id", videoId);
 
     let response;
@@ -105,11 +105,18 @@ class YouTubeMetadataService {
       publishedAtSource: "youtube_api",
       channelId: item.snippet.channelId || null,
       channelTitle: item.snippet.channelTitle || null,
-      title: item.snippet.title || null
+      title: item.snippet.title || null,
+      language: item.snippet.defaultAudioLanguage || item.snippet.defaultLanguage || null,
+      durationSeconds: parseDuration(item.contentDetails?.duration)
     });
     this.cache.set(videoId, metadata);
     return metadata;
   }
+}
+
+function parseDuration(value) {
+  const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/u.exec(value || "");
+  return match ? Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0) : null;
 }
 
 module.exports = {

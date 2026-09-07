@@ -72,6 +72,18 @@ chrome.tabs.onActivated.addListener(() => {
   scheduleRefresh();
 });
 
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.action !== "evidencePlayback" || !sender.tab || !Number.isFinite(message.seconds)) return;
+  for (const item of reportInspector.querySelectorAll("[data-evidence-start]")) {
+    const report = item.closest("[data-outcome-video]");
+    const active = report?.dataset.outcomeVideo === message.videoId &&
+      message.seconds >= Number(item.dataset.evidenceStart) && message.seconds < Number(item.dataset.evidenceEnd);
+    item.classList.toggle("is-playing", active);
+    if (active) item.setAttribute("aria-current", "true");
+    else item.removeAttribute("aria-current");
+  }
+});
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (tab.active && (changeInfo.url || changeInfo.status === "complete")) {
     scheduleRefresh();
@@ -1073,6 +1085,14 @@ function handleVideoReportSelection(event) {
 }
 
 function handleInspectorClick(event) {
+  const evidence = event.target.closest("[data-seek-evidence]");
+  if (evidence) {
+    event.preventDefault();
+    const id = evidence.closest("[data-outcome-video]")?.dataset.outcomeVideo;
+    if (isValidVideoId(id)) openOrFocusVideo(`https://www.youtube.com/watch?v=${id}`, Number(evidence.dataset.seekEvidence))
+      .catch(error => showStatus(friendlyError(error), true));
+    return;
+  }
   if (retryOutcome(event)) {
     return;
   }
@@ -1122,10 +1142,11 @@ function retryOutcome(event) {
   return true;
 }
 
-async function openOrFocusVideo(videoUrl) {
+async function openOrFocusVideo(videoUrl, startSeconds) {
   const response = await chrome.runtime.sendMessage({
     action: "openOrFocusVideo",
-    videoUrl
+    videoUrl,
+    ...(startSeconds !== undefined ? { startSeconds } : {})
   });
 
   if (!response?.ok) {
@@ -1511,7 +1532,7 @@ function renderCompanyReportContent(report) {
     ? report.levels.filter(hasUsableStructuredValue)
     : [];
   const evidence = Array.isArray(report.evidence)
-    ? report.evidence.filter(hasMeaningfulText)
+    ? report.evidence.filter(item => typeof item === "object" || hasMeaningfulText(item))
     : [];
   const thesis = hasMeaningfulText(report.thesis) ? report.thesis.trim() : null;
   const facts = [
@@ -1558,8 +1579,11 @@ function renderCompanyReportContent(report) {
         `).join("")}</ul></section>`
       : ""}
     ${evidence.length
-      ? `<section class="report-section"><h4>Belege aus dem Video</h4><ul>${evidence.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`
-      : ""}
+      ? `<section class="report-section"><h4>Belege aus dem Video</h4><ul>${EvidenceUI.render(evidence)}</ul></section>`
+      : '<p class="report-missing">Keine prüfbaren Belege verfügbar.</p>'}
+    <section class="report-section"><h4>Risiken</h4>${report.risks?.length
+      ? `<ul>${report.risks.map(risk => `<li>${escapeHtml(risk)}</li>`).join("")}</ul>`
+      : '<p class="report-missing">Keine Risiken aus den erfassten Belegen extrahiert. Das bedeutet nicht, dass keine Risiken bestehen.</p>'}</section>
   `;
 }
 
