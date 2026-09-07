@@ -75,7 +75,7 @@ document.addEventListener("accountChanged", () => {
   refreshEpoch++;
   lastDashboard = null; creators = []; selectedCreatorId = null; selectedVideoId = null; selectedCompanyKey = null;
   visibleVideos = []; visibleCompanyReports = []; outcomeCache.clear();
-  videoList.replaceChildren(); reportInspector.replaceChildren(); creatorList.replaceChildren();
+  videoList.replaceChildren(); reportInspector.replaceChildren(); clearCreatorOverview();
   document.getElementById("researchAnswer").textContent = ""; document.getElementById("researchCitations").replaceChildren();
   renderEmpty("Bibliothek wird geladen", ""); refreshPanel();
 });
@@ -124,6 +124,7 @@ async function refreshPanel() {
     const account = await AppApi.currentAccount();
     if (epoch !== refreshEpoch) return;
     if (AppApi.config.accountRequired && !account && AppApi.scope !== "examples") {
+      clearCreatorOverview();
       renderEmpty("Deine Research Library", "Melde dich an oder öffne die separate Beispielbibliothek. Eine persönliche Videoanalyse ist kostenlos.");
       return;
     }
@@ -552,6 +553,12 @@ function renderCreatorOverview(items) {
     image.addEventListener("error", () => image.remove());
   });
   creatorOverview.classList.remove("hidden");
+}
+
+function clearCreatorOverview() {
+  creatorCount.textContent = "";
+  creatorList.replaceChildren();
+  creatorOverview.classList.add("hidden");
 }
 
 async function handleCreatorSelection(event) {
