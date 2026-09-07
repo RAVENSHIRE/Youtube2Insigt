@@ -1119,6 +1119,21 @@ button {
   background: rgba(255, 255, 255, 0.07);
 }
 
+.ticker-link,
+.inspector-header h2 a {
+  color: #b9d4ff;
+  text-decoration: none;
+}
+
+.ticker-link:hover,
+.ticker-link:focus-visible,
+.inspector-header h2 a:hover,
+.inspector-header h2 a:focus-visible {
+  color: #fff;
+  border-color: rgba(109, 167, 255, 0.72);
+  outline: none;
+}
+
 .call-type-mention {
   border-color: rgba(160, 168, 184, 0.55);
   color: #d1d5dc;

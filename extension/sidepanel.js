@@ -783,6 +783,7 @@ function buildCompanyReports(videos) {
           key,
           company,
           ticker: report.ticker || null,
+          tradingViewUrl: report.tradingview_url || null,
           assetType: report.asset_type || "other",
           sector: report.sector || "Other",
           subSector: report.sub_sector || report.subSector || "Unclassified Assets",
@@ -1135,6 +1136,11 @@ function handleVideoReportSelection(event) {
 }
 
 function handleInspectorClick(event) {
+  if (event.target.closest("[data-tradingview]")) {
+    event.stopPropagation();
+    return;
+  }
+
   const evidence = event.target.closest("[data-seek-evidence]");
   if (evidence) {
     event.preventDefault();
@@ -1235,7 +1241,9 @@ function renderCompanyInspector(key) {
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Unternehmenshistorie</div>
-        <h2>${escapeHtml(company.company)}${company.ticker ? ` <span>${escapeHtml(company.ticker)}</span>` : ""}</h2>
+        <h2>${escapeHtml(company.company)}${company.ticker ? company.tradingViewUrl
+          ? ` <a href="${escapeHtml(company.tradingViewUrl)}" target="_blank" rel="noopener noreferrer" data-tradingview>${escapeHtml(company.ticker)} ↗</a>`
+          : ` <span>${escapeHtml(company.ticker)}</span>` : ""}</h2>
       </div>
       ${renderInspectorCloseButton()}
     </div>
@@ -1335,7 +1343,9 @@ function renderCompanyReport(report, index, videoId) {
       <summary>
         <span class="report-entry-identity">
           <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
-          ${report.ticker ? `<span class="ticker-badge">${escapeHtml(report.ticker)}</span>` : ""}
+          ${report.ticker ? report.tradingview_url
+            ? `<a class="ticker-badge ticker-link" href="${escapeHtml(report.tradingview_url)}" target="_blank" rel="noopener noreferrer" data-tradingview aria-label="${escapeHtml(report.company || report.ticker)} auf TradingView öffnen">${escapeHtml(report.ticker)} ↗</a>`
+            : `<span class="ticker-badge">${escapeHtml(report.ticker)}</span>` : ""}
           ${renderCallTypeBadge(report.call_type)}
           ${renderSentimentBadge(report.sentiment)}
         </span>

@@ -2,6 +2,13 @@ const { resolveInstrumentIdentity } = require('./instrumentResolver');
 const { AppError } = require('../accounts/store');
 const cleanName = value => String(value || '').toLowerCase().replace(/\b(inc|ltd|limited|corporation|corp|holdings|common|stock|shares|class|plc)\b/gu, '').replace(/[^a-z0-9]/gu, '');
 const EXCHANGES = { NASDAQ: 'NASDAQ', NYSE: 'NYSE', 'NYSE American': 'AMEX', AMEX: 'AMEX', XETRA: 'XETR' };
+const VERIFIED_LISTINGS = Object.freeze({
+  RKLB: { exchange: 'NASDAQ', names: ['rocketlab'] },
+  ASTS: { exchange: 'NASDAQ', names: ['astspacemobile'] },
+  GOOGL: { exchange: 'NASDAQ', names: ['alphabet'] },
+  MSFT: { exchange: 'NASDAQ', names: ['microsoft'] },
+  NVDA: { exchange: 'NASDAQ', names: ['nvidia'] }
+});
 
 function identityConflict(company) {
   const symbol = String(company.ticker || '').toUpperCase(), name = cleanName(company.company);
@@ -12,6 +19,8 @@ function tradingViewLink(company) {
   const identity = resolveInstrumentIdentity(company);
   const symbol = identity.current_symbol;
   let exchange = identity.current_exchange || company.verified_listing?.exchange;
+  const verified = VERIFIED_LISTINGS[symbol];
+  if (!exchange && verified?.names.some(name => cleanName(company.company).includes(name))) exchange = verified.exchange;
   if (symbol === 'INDO' && cleanName(company.company).includes('indonesiaenergy')) exchange = 'AMEX';
   if (symbol === 'INOD' && cleanName(company.company).includes('innodata')) exchange = 'NASDAQ';
   const venue = EXCHANGES[exchange];

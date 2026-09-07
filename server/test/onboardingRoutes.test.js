@@ -13,8 +13,11 @@ test('HTTP examples, manual creators, licensed-data gate and premium previews ca
   store.addSession(user.id, 'synthetic-session');
   const report = { analysis_version: 8, video: { id: 'TestVideo01', title: 'PRIVATE FIXTURE', creator: 'Private creator' }, companies: [{ company: 'Innodata Inc', ticker: 'INOD' }] };
   const job = store.reserve(user.id, 'TestVideo01', 8); store.complete(user.id, job.id, report);
-  const deps = { ai: null, model: 'test', youtubeMetadataService: { isConfigured: () => false },
-    profileToChannel: p => ({ creatorId: p.creator_id, name: p.display_name, analyzedVideos: p.analyzed_videos }),
+  const deps = { ai: null, model: 'test', youtubeMetadataService: { isConfigured: () => true,
+    getChannel: async identifier => ({ id: `UC${'a'.repeat(22)}`, name: identifier, handle: identifier,
+      url: `https://www.youtube.com/${identifier}`, subscriber_count: '123456', total_videos: 789 }) },
+    profileToChannel: p => ({ creatorId: p.creator_id, name: p.display_name, analyzedVideos: p.analyzed_videos,
+      subscriberCount: p.subscriber_count, totalVideos: p.total_videos }),
     buildDashboard: async records => ({ videos: Object.values(records).map(r => ({ id: r.video.id, performance: 'must be removed' })), companies: [] }) };
   const runtime = installAccounts(app, { ...deps, store, extend: createExtensions(deps) }, { PUBLIC_BASE_URL: 'http://localhost:3000' });
   const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -28,7 +31,11 @@ test('HTTP examples, manual creators, licensed-data gate and premium previews ca
   }
   const examples = await request('/examples/creators', { authenticated: false });
   assert.equal(examples.status, 200); assert.equal(examples.body.creators.length, 3);
+  assert.equal(examples.body.creators.every(creator => creator.subscriberCount === '123456' && creator.totalVideos === 789), true);
   assert.equal(JSON.stringify(examples).includes('PRIVATE FIXTURE'), false);
+  const ipoExample = await request('/examples/videos/J3Y_JBATcWg', { authenticated: false });
+  assert.equal(ipoExample.body.companies.find(company => company.ticker === 'RKLB').tradingview_url, 'https://www.tradingview.com/symbols/NASDAQ-RKLB/');
+  assert.equal(ipoExample.body.companies.find(company => company.ticker === 'ASTS').tradingview_url, 'https://www.tradingview.com/symbols/NASDAQ-ASTS/');
   assert.equal((await request('/examples/videos/TestVideo01', { authenticated: false })).status, 404);
   assert.equal((await request('/videos/TestVideo01', { authenticated: false })).status, 401);
   assert.equal((await request('/videos/TestVideo01')).body.companies[0].tradingview_url, 'https://www.tradingview.com/symbols/NASDAQ-INOD/');

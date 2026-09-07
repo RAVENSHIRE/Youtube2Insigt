@@ -33,16 +33,46 @@ function createExtensions(deps) {
     const identities = new MarketIdentity(deps.snapshotProvider);
     const premium = loadPremium(env.PREMIUM_CORPUS_PATH);
     const exampleProfiles = profiles(examples.reports);
+    let exampleProfileCache = null;
+    let exampleProfileCacheUntil = 0;
+    let exampleProfileRequest = null;
+    const getExampleProfiles = async () => {
+      if (exampleProfileCache && exampleProfileCacheUntil > Date.now()) return exampleProfileCache;
+      if (exampleProfileRequest) return exampleProfileRequest;
+      exampleProfileRequest = Promise.all(exampleProfiles.map(async profile => {
+        const identifier = profile.youtube_channel_id || profile.handle;
+        if (!identifier || !deps.youtubeMetadataService.isConfigured()) return profile;
+        try {
+          const channel = await deps.youtubeMetadataService.getChannel(identifier);
+          return { ...profile, display_name: channel.name || profile.display_name,
+            youtube_channel_id: channel.id || profile.youtube_channel_id,
+            handle: channel.handle || profile.handle, channel_url: channel.url || profile.channel_url,
+            avatar_url: channel.avatar_url || profile.avatar_url,
+            subscriber_count: channel.subscriber_count ?? profile.subscriber_count,
+            total_videos: channel.total_videos ?? profile.total_videos };
+        } catch { return profile; }
+      })).then(result => {
+        exampleProfileCache = result;
+        exampleProfileCacheUntil = Date.now() + 600000;
+        return result;
+      }).finally(() => { exampleProfileRequest = null; });
+      return exampleProfileRequest;
+    };
     const requirePro = (req, res, next) => store.isPro(req.user.id) ? next() : next(new AppError('PRO_REQUIRED', 'Diese Funktion benötigt Pro.', 403));
-    app.get('/examples/creators', (req, res) => res.json({ creators: exampleProfiles.map(deps.profileToChannel), review: examples.review, personal: false }));
-    app.get('/examples/creators/resolve', (req, res, next) => {
-      const profile = exampleProfiles.find(p => (req.query.handle && String(p.handle).toLowerCase() === req.query.handle.toLowerCase()) ||
+    app.get('/examples/creators', asyncRoute(async (req, res) => {
+      const hydrated = await getExampleProfiles();
+      res.json({ creators: hydrated.map(deps.profileToChannel), review: examples.review, personal: false });
+    }));
+    app.get('/examples/creators/resolve', asyncRoute(async (req, res) => {
+      const hydrated = await getExampleProfiles();
+      const profile = hydrated.find(p => (req.query.handle && String(p.handle).toLowerCase() === req.query.handle.toLowerCase()) ||
         (req.query.channelUrl && p.channel_url === req.query.channelUrl));
-      if (!profile) return next(new AppError('CREATOR_NOT_FOUND', 'Creator nicht in den Beispielen.', 404));
+      if (!profile) throw new AppError('CREATOR_NOT_FOUND', 'Creator nicht in den Beispielen.', 404);
       res.json({ creator: deps.profileToChannel(profile) });
-    });
+    }));
     app.get('/examples/creators/:creatorId/dashboard', asyncRoute(async (req, res) => {
-      const profile = exampleProfiles.find(p => p.creator_id === req.params.creatorId);
+      const hydrated = await getExampleProfiles();
+      const profile = hydrated.find(p => p.creator_id === req.params.creatorId);
       if (!profile) throw new AppError('CREATOR_NOT_FOUND', 'Creator nicht in den Beispielen.', 404);
       const reports = examples.reports.filter(r => creatorOf(r).creator_id === req.params.creatorId);
       const dashboard = await deps.buildDashboard(Object.fromEntries(reports.map(r => [r.video.id, r])), profile);
