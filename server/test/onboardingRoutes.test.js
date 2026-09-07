@@ -11,7 +11,7 @@ test('HTTP examples, manual creators, licensed-data gate and premium previews ca
   const user = store.createUser('isolated@example.test', 'unused');
   store.emailToken(user.id, 'verify-fixture'); store.consumeEmailToken('verify-fixture', 'verify');
   store.addSession(user.id, 'synthetic-session');
-  const report = { analysis_version: 8, video: { id: 'TestVideo01', title: 'PRIVATE FIXTURE', creator: 'Private creator' }, companies: [] };
+  const report = { analysis_version: 8, video: { id: 'TestVideo01', title: 'PRIVATE FIXTURE', creator: 'Private creator' }, companies: [{ company: 'Innodata Inc', ticker: 'INOD' }] };
   const job = store.reserve(user.id, 'TestVideo01', 8); store.complete(user.id, job.id, report);
   const deps = { ai: null, model: 'test', youtubeMetadataService: { isConfigured: () => false },
     profileToChannel: p => ({ creatorId: p.creator_id, name: p.display_name, analyzedVideos: p.analyzed_videos }),
@@ -31,6 +31,8 @@ test('HTTP examples, manual creators, licensed-data gate and premium previews ca
   assert.equal(JSON.stringify(examples).includes('PRIVATE FIXTURE'), false);
   assert.equal((await request('/examples/videos/TestVideo01', { authenticated: false })).status, 404);
   assert.equal((await request('/videos/TestVideo01', { authenticated: false })).status, 401);
+  assert.equal((await request('/videos/TestVideo01')).body.companies[0].tradingview_url, 'https://www.tradingview.com/symbols/NASDAQ-INOD/');
+  assert.equal(store.ownReport(user.id, 'TestVideo01').companies[0].tradingview_url, undefined);
   assert.equal((await request('/dashboard')).body.videos[0].performance, undefined);
   assert.equal((await request('/videos/TestVideo01/companies/0/outcome')).body.code, 'MARKET_DATA_LICENSE_REQUIRED');
   assert.equal((await request('/premium/previews')).body.available_records, 0);

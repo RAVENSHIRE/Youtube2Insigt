@@ -12,6 +12,7 @@ const parse = row => row ? JSON.parse(row.body) : null;
 
 class AccountStore {
   constructor(filename, { now = () => Date.now(), proCredits = 20 } = {}) {
+    if (!Number.isInteger(proCredits) || proCredits < 1 || proCredits > 10000) throw Error('PRO_MONTHLY_ANALYSES must be an integer from 1 to 10000.');
     if (filename !== ':memory:') {
       if (!path.isAbsolute(filename)) throw Error('ACCOUNT_DB_PATH must be absolute.');
       fs.mkdirSync(path.dirname(filename), { recursive: true, mode: 0o700 });

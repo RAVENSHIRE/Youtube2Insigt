@@ -5,6 +5,7 @@ const { YouTubeSync } = require('./youtubeSync');
 const { AskService } = require('../research/askService');
 const { VisualService } = require('../evidence/visualService');
 const { MarketIdentity, presentMarket } = require('../instruments/marketIdentity');
+const { projectResearchForRead } = require('../instruments/instrumentProjection');
 const examples = require('../examples/reviewed-excerpts.json');
 
 function manualIdentifier(value) {
@@ -51,7 +52,7 @@ function createExtensions(deps) {
     app.get('/examples/videos/:videoId', (req, res, next) => {
       const report = examples.reports.find(r => r.video.id === req.params.videoId);
       if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in den Beispielen.', 404));
-      res.json({ ...report, example: true, review: examples.review });
+      res.json({ ...projectResearchForRead(report), example: true, review: examples.review });
     });
     app.get('/premium/previews', auth, (req, res) => res.json({ available_records: premium.length,
       status: premium.length ? 'available' : 'no_reviewed_corpus_configured',
@@ -60,7 +61,7 @@ function createExtensions(deps) {
     app.get('/premium/videos/:videoId', auth, requirePro, (req, res, next) => {
       const record = premium.find(item => item.report.video.id === req.params.videoId);
       if (!record) return next(new AppError('VIDEO_NOT_FOUND', 'Report nicht verfügbar.', 404));
-      res.json(record.report);
+      res.json(projectResearchForRead(record.report));
     });
     app.post('/research/ask', auth, limited('ask-library', 20, 86400000), asyncRoute(async (req, res) => {
       const reports = req.body.scope === 'examples' ? examples.reports : store.library(req.user.id);

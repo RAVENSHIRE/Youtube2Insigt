@@ -188,19 +188,22 @@ const ANALYSIS_SCHEMA = {
 };
 
 const app = express();
+const legacyMode = process.env.APP_MODE === "legacy";
+if (legacyMode && process.env.NODE_ENV === "production") throw new Error("Legacy mode cannot be exposed in production.");
+const marketStorageAllowed = legacyMode || process.env.COMMERCIAL_MARKET_DATA_APPROVED === "true";
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 const sourceService = new SourceService({ audioFallback: process.env.AUDIO_TRANSCRIPTION_URL && process.env.AUDIO_TRANSCRIPTION_KEY
   ? new AudioFallback({ url: process.env.AUDIO_TRANSCRIPTION_URL, apiKey: process.env.AUDIO_TRANSCRIPTION_KEY }) : null });
 const analysisLocks = new Map();
-const creatorRepository = CREATOR_DATA_ROOT
+const creatorRepository = legacyMode && CREATOR_DATA_ROOT
   ? new CreatorRepository(CREATOR_DATA_ROOT)
   : null;
 const snapshotProvider = new TwelveDataProvider();
 const youtubeMetadataService = new YouTubeMetadataService();
-const snapshotRepository = MARKET_SNAPSHOT_ROOT
+const snapshotRepository = marketStorageAllowed && MARKET_SNAPSHOT_ROOT
   ? new SnapshotRepository(MARKET_SNAPSHOT_ROOT)
   : null;
-const outcomeRepository = MARKET_SNAPSHOT_ROOT
+const outcomeRepository = marketStorageAllowed && MARKET_SNAPSHOT_ROOT
   ? new OutcomeRepository(MARKET_SNAPSHOT_ROOT)
   : null;
 const marketSnapshotService = snapshotRepository
@@ -218,8 +221,6 @@ const outcomeService = marketSnapshotService
     })
   : null;
 
-const legacyMode = process.env.APP_MODE === "legacy";
-if (legacyMode && process.env.NODE_ENV === "production") throw new Error("Legacy mode cannot be exposed in production.");
 if (legacyMode) {
   app.use(cors());
   app.use(express.json({ limit: "1mb" }));

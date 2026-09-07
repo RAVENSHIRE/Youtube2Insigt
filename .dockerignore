@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+**/node_modules
+server/data
+server/runtime
+server/test
+**/*.sqlite*
+**/*.log
+build
+coverage
+recovery

@@ -4,6 +4,7 @@ const { AccountStore, AppError, hash } = require('./store');
 const { token, emailAddress, passwordHash, passwordMatches, bearer, authMiddleware, Mailer } = require('./auth');
 const { BillingService, StripeClient } = require('./billing');
 const { AnalysisJobs } = require('./analysisJobs');
+const { projectResearchForRead } = require('../instruments/instrumentProjection');
 
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 const validVideo = id => /^[A-Za-z0-9_-]{11}$/u.test(id || '');
@@ -139,13 +140,13 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   app.get('/videos/:videoId', auth, (req, res, next) => {
     const report = store.ownReport(req.user.id, req.params.videoId);
     if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in deiner Bibliothek.', 404));
-    res.json(report);
+    res.json(projectResearchForRead(report));
   });
   app.post('/videos/:videoId/metadata', auth, (req, res, next) => {
     const report = store.ownReport(req.user.id, req.params.videoId);
     if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in deiner Bibliothek.', 404));
     // Browser metadata must not overwrite canonical source identity/publication.
-    res.json(report);
+    res.json(projectResearchForRead(report));
   });
   const selections = userId => store.db.prepare('SELECT body FROM creator_selections WHERE user_id=?').all(userId).map(row => JSON.parse(row.body));
   const getProfiles = user => profiles(store.library(user.id), selections(user.id));

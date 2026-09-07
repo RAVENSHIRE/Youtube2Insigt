@@ -2,11 +2,47 @@
 
 ## Produktvision, Roadmap und Kommerzialisierung bis Dezember 2026
 
-**Status:** Produkt- und Ausführungsplan, aktualisiert am 1. September 2026<br>
+**Status:** Produktvision mit MVP-Abgrenzung, aktualisiert am 7. September 2026<br>
 **Zieltermin:** 31. Dezember 2026<br>
 **Referenzvideo:** [Business with Brian – 141 Videos, 21 Channels, 5 Companies](https://www.youtube.com/watch?v=4u8dR2Dxcdc)
 
 ## Aktueller Umsetzungsstand
+
+**Maßgeblich für diese Veröffentlichung:** [MVP-Roadmap](../ROADMAP.md),
+[Release-Handoff](MVP_RELEASE_HANDOFF.md) und [Abnahme](MVP_ACCEPTANCE.md).
+Der Release-Zweig `release/paid-beta-rc1` enthält die Integration. `main` bleibt
+bis zur ausdrücklichen Freigabe unverändert. Analysis Version 8, Konten-Schema 1,
+Evidence Version 1; 125 automatisierte Tests bestanden. Dies ist kein Live-Stripe-,
+Chrome-, Deployment- oder Store-Nachweis.
+
+### Kommerzieller MVP: Research speichern und wiederfinden
+
+Primäre Kundschaft sind **Retail-Investoren, die Finanz-YouTube konsumieren**.
+Keine individuelle Brian-Sonderdemo: analysieren, Originalbelege wiederfinden,
+Research speichern und quellengebunden befragen sind der wiederholbare Nutzen.
+Eine kostenlose persönliche Analyse pro bestätigtem Konto zeigt den Ablauf;
+separate ehrlich gekennzeichnete Beispiele zeigen mehrere Creator, ohne eine
+bereits befüllte persönliche Bibliothek vorzutäuschen. Ein monatliches Pro-Abo
+finanziert ein serverseitig begrenztes Analysekontingent. Kaufpreis wird vom
+Betreiber als monatlicher Stripe Price konfiguriert, nicht im Client festgelegt.
+
+Die bestehende Extension bleibt kompakt. Keine neuen Portfolio-/Ranking-/Social-
+Bereiche in diesem Release. Konten, Checkout und Aboverwaltung erhalten eine
+kleine begleitende Weboberfläche. Größerer Researcher Workspace und Mobile sind
+spätere Evolutionen, nicht Voraussetzungen für den ersten bezahlten Research-MVP.
+Jesse bleibt für späteres Strategie-Backtesting reserviert.
+
+Vor Cold Outreach mit einem Kaufangebot müssen Quellenqualität, echte Zeitmarken,
+zwei isolierte Kundenkonten, Stripe-Test-Abrechnung und der veröffentlichte
+HTTPS-Dienst nachgewiesen sein. Marktperformance darf nur mit freigegebenen
+kommerziellen Datenrechten verkauft werden. Kein Kopieren oder Monetarisieren
+eines fremden Creator-/Analyse-Corpus ohne passende Rechte. „SignalTube“ bleibt
+hier ein historischer Arbeitsname; endgültiges Branding ist noch zu entscheiden.
+
+### Historischer Entwicklungsstand vor dieser MVP-Runde
+
+Die folgende frühere Momentaufnahme ist **kein aktueller Kundenbestand und kein
+Nachweis der neuen Konten-/Abo-Integration**:
 
 **Verifizierter Teststand:** `feature/live-market-snapshot-proof`<br>
 **Backend:** Analysis Version 6, Creator Storage v2, Market Snapshot Schema v1<br>
