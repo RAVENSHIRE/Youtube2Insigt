@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YT Research · Konto</title><link rel="stylesheet" href="account.css"></head>
+<body><main>
+  <header><a class="wordmark" href="/account/">YT <span>Research</span></a><span class="badge">Private Beta</span></header>
+  <div class="intro"><p class="eyebrow">DEINE QUELLEN. DEINE RESEARCH LIBRARY.</p><h1>Gute Ideen verdienen<br>ein Gedächtnis.</h1><p>Finanzvideos sichern, Aussagen an der Quelle prüfen und frühere Recherchen wiederfinden.</p></div>
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="auth" class="card"><h2>Dein Research-Konto</h2><p>Eine persönliche Videoanalyse kostenlos. Lesen gespeicherter Reports verbraucht keine weitere Analyse.</p>
+    <form id="authForm"><label>E-Mail<input id="email" type="email" autocomplete="email" required maxlength="254"></label>
+      <label>Passwort<input id="password" type="password" autocomplete="current-password" required minlength="12" maxlength="128"></label>
+      <div class="actions"><button type="submit">Anmelden</button><button type="button" id="register" class="secondary">Konto erstellen</button></div>
+      <button type="button" id="reset" class="text-button">Passwort vergessen?</button>
+    </form>
+  </section>
+  <section id="resetPanel" class="card" hidden><h2>Neues Passwort</h2><form id="resetForm"><label>Passwort (mindestens 12 Zeichen)<input id="newPassword" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label><button>Passwort speichern</button></form></section>
+  <section id="accountPanel" hidden><div class="card"><div class="row"><h2>Dein Konto</h2><button id="logout" class="text-button">Abmelden</button></div><p id="identity"></p><div class="stats"><div><small>PLAN</small><strong id="plan"></strong></div><div><small>ANALYSEN VERFÜGBAR</small><strong id="credits"></strong></div></div><p id="subscription"></p><div class="actions"><button id="checkout">Pro ansehen</button><button id="portal" class="secondary">Abo verwalten</button></div><p class="fine" id="proDescription"></p></div>
+    <div class="card"><h2>Ein Video sichern</h2><p>Starte bewusst. Ein neuer persönlicher Report reserviert eine Analyse; bei einem Fehler wird sie freigegeben.</p><form id="analysisForm"><label>YouTube-Video-URL<input id="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=…" required></label><button id="analyze">Video analysieren · 1 Analyse</button></form></div>
+    <div class="card"><h2>Deine Bibliothek <small id="libraryCount"></small></h2><div id="personalLibrary"></div></div>
+  </section>
+  <footer>Research-Dokumentation, keine Anlageberatung. Marktdaten sind bis zur Freigabe kommerzieller Nutzungsrechte nicht Teil des bezahlten Angebots.<br><a href="privacy.html">Datenschutz &amp; Beta-Hinweise</a></footer>
+</main><script src="account.js"></script></body></html>

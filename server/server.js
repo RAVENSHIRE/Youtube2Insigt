@@ -218,8 +218,12 @@ const outcomeService = marketSnapshotService
     })
   : null;
 
-app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+const legacyMode = process.env.APP_MODE === "legacy";
+if (legacyMode && process.env.NODE_ENV === "production") throw new Error("Legacy mode cannot be exposed in production.");
+if (legacyMode) {
+  app.use(cors());
+  app.use(express.json({ limit: "1mb" }));
+}
 
 function cleanEnvironmentPath(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -1146,6 +1150,11 @@ async function buildDashboard(videos, creatorProfile = null) {
   };
 }
 
+const accountRuntime = !legacyMode ? require("./accounts/routes").installAccounts(app, {
+  analyze: createVerifiedReport, analysisConfigured: Boolean(ai && youtubeMetadataService.isConfigured()),
+  buildDashboard, profileToChannel
+}) : null;
+
 app.post("/analyze", async (req, res) => {
   try {
     const {
@@ -1590,17 +1599,18 @@ app.get("/health", (req, res) => {
   });
 });
 
-if (!creatorStorageEnabled()) {
+if (legacyMode && !creatorStorageEnabled()) {
   ensureStorage();
 }
 
 function startServer(port = PORT) {
-  return app.listen(port, () => {
+  return app.listen(port, legacyMode ? "127.0.0.1" : process.env.HOST || "127.0.0.1", () => {
     console.log(`YT Investor Research API läuft auf http://localhost:${port}`);
     console.log(`Analysis Version: ${ANALYSIS_VERSION}`);
     console.log(`Gemini Model: ${GEMINI_MODEL}`);
     console.log(`Storage Mode: ${creatorStorageEnabled() ? "creator-v2" : "legacy-flat"}`);
     console.log(`Market Snapshots: ${marketSnapshotService ? "enabled" : "disabled"}`);
+    console.log(`App mode: ${legacyMode ? "legacy-development-only" : "accounts"}`);
   });
 }
 
@@ -1610,6 +1620,7 @@ if (require.main === module) {
 
 module.exports = {
   app,
+  accountRuntime,
   buildDashboard,
   createVerifiedReport,
   ai,
