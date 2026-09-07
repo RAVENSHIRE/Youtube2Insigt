@@ -85,40 +85,14 @@
             >
           </label>
 
-          <div class="library-filter-grid">
-            <label>
-              <span>Sortierung</span>
-              <select id="librarySort">
-                <option value="published-desc">Veröffentlichung · Neueste</option>
-                <option value="published-asc">Veröffentlichung · Älteste</option>
-                <option value="analyzed-desc">Analyse · Neueste</option>
-                <option value="analyzed-asc">Analyse · Älteste</option>
-              </select>
-            </label>
-            <label>
-              <span>Sektor</span>
-              <select id="librarySector">
-                <option value="">Alle Sektoren</option>
-              </select>
-            </label>
-            <label>
-              <span>Sentiment</span>
-              <select id="librarySentiment">
-                <option value="">Alle Sentiments</option>
-              </select>
-            </label>
-            <label>
-              <span>Call-Typ</span>
-              <select id="libraryCallType">
-                <option value="">Alle Call-Typen</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="library-control-footer">
-            <span id="libraryResultSummary" aria-live="polite"></span>
-            <button id="libraryReset" type="reset">Filter zurücksetzen</button>
-          </div>
+          <label class="library-sort">
+            <span class="sr-only">Research Library sortieren</span>
+            <select id="librarySort">
+              <option value="analyzed-desc">Neueste Analyse</option>
+              <option value="analyzed-asc">Älteste Analyse</option>
+              <option value="performance-desc">Performance</option>
+            </select>
+          </label>
         </form>
 
         <div id="videoList" class="video-list"></div>

@@ -10,8 +10,7 @@
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
   const SORT_MODES = new Set([
-    "published-desc",
-    "published-asc",
+    "performance-desc",
     "analyzed-desc",
     "analyzed-asc"
   ]);
@@ -47,35 +46,11 @@
       : "";
   }
 
-  function companyCallType(company = {}) {
-    return normalizeText(company.call_type || company.callType);
-  }
-
-  function companySubSector(company = {}) {
-    return String(company.sub_sector || company.subSector || "").trim();
-  }
-
-  function companyMatchesFacets(company = {}, filters = {}) {
-    const sector = normalizeText(filters.sector);
-    const sentiment = normalizeText(filters.sentiment);
-    const callType = normalizeText(filters.callType);
-
-    return (!sector || normalizeText(company.sector) === sector) &&
-      (!sentiment || normalizeText(company.sentiment) === sentiment) &&
-      (!callType || companyCallType(company) === callType);
-  }
-
   function videoSearchText(video = {}) {
     const companies = Array.isArray(video.companies) ? video.companies : [];
     const companyText = companies.map(company => fieldText({
       company: company.company,
       ticker: company.ticker,
-      assetType: company.asset_type,
-      sector: company.sector,
-      subSector: companySubSector(company),
-      sentiment: company.sentiment,
-      callType: company.call_type || company.callType,
-      action: company.action,
       thesis: company.thesis,
       evidence: company.evidence,
       priceTargets: company.price_targets,
@@ -91,99 +66,67 @@
     ].filter(Boolean).join(" "));
   }
 
-  function filterResearchVideos(videos = [], filters = {}) {
-    const query = normalizeText(filters.query);
-    const hasCompanyFacet = Boolean(
-      normalizeText(filters.sector) ||
-      normalizeText(filters.sentiment) ||
-      normalizeText(filters.callType)
-    );
-
-    return videos.filter(video => {
-      const companies = Array.isArray(video.companies) ? video.companies : [];
-
-      if (hasCompanyFacet && !companies.some(company =>
-        companyMatchesFacets(company, filters)
-      )) {
-        return false;
-      }
-
-      return !query || videoSearchText(video).includes(query);
-    });
+  function filterResearchVideos(videos = [], query = "") {
+    const normalizedQuery = normalizeText(query);
+    return normalizedQuery
+      ? videos.filter(video => videoSearchText(video).includes(normalizedQuery))
+      : [...videos];
   }
 
-  function compareNullableTime(left, right, direction) {
-    if (left === right) {
-      return 0;
+  function analysisTimestamp(video = {}) {
+    return timestamp(video.analyzedAt) ?? timestamp(video.publishedAt);
+  }
+
+  function performanceValue(video = {}) {
+    const rawValue = video.performance?.averageReturnPct;
+    if (rawValue === null || rawValue === undefined || rawValue === "") {
+      return null;
     }
 
-    if (left === null) {
-      return 1;
-    }
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? value : null;
+  }
 
-    if (right === null) {
-      return -1;
-    }
-
+  function compareNullable(left, right, direction) {
+    if (left === right) return 0;
+    if (left === null) return 1;
+    if (right === null) return -1;
     return direction === "asc" ? left - right : right - left;
   }
 
-  function sortResearchVideos(videos = [], mode = "published-desc") {
-    const selectedMode = SORT_MODES.has(mode) ? mode : "published-desc";
-    const [field, direction] = selectedMode.split("-");
+  function compareStableIdentity(left, right) {
+    const sequenceOrder = Number(left.analysisSequence || 0) -
+      Number(right.analysisSequence || 0);
+    return sequenceOrder || String(left.id || "").localeCompare(String(right.id || ""));
+  }
+
+  function sortResearchVideos(videos = [], mode = "analyzed-desc") {
+    const selectedMode = SORT_MODES.has(mode) ? mode : "analyzed-desc";
 
     return [...videos].sort((left, right) => {
-      const leftTime = field === "analyzed"
-        ? timestamp(left.analyzedAt) ?? timestamp(left.publishedAt)
-        : timestamp(left.publishedAt) ?? timestamp(left.analyzedAt);
-      const rightTime = field === "analyzed"
-        ? timestamp(right.analyzedAt) ?? timestamp(right.publishedAt)
-        : timestamp(right.publishedAt) ?? timestamp(right.analyzedAt);
-      const timeOrder = compareNullableTime(leftTime, rightTime, direction);
-
-      if (timeOrder !== 0) {
-        return timeOrder;
+      if (selectedMode === "performance-desc") {
+        const performanceOrder = compareNullable(
+          performanceValue(left),
+          performanceValue(right),
+          "desc"
+        );
+        if (performanceOrder !== 0) return performanceOrder;
       }
 
-      const sequenceOrder = Number(left.analysisSequence || 0) -
-        Number(right.analysisSequence || 0);
-
-      if (sequenceOrder !== 0) {
-        return sequenceOrder;
-      }
-
-      return String(left.id || "").localeCompare(String(right.id || ""));
+      const direction = selectedMode === "analyzed-asc" ? "asc" : "desc";
+      const timeOrder = compareNullable(
+        analysisTimestamp(left),
+        analysisTimestamp(right),
+        direction
+      );
+      return timeOrder || compareStableIdentity(left, right);
     });
   }
 
-  function uniqueSorted(values) {
-    return [...new Set(values.filter(Boolean))].sort((left, right) =>
-      left.localeCompare(right, "de", { sensitivity: "base" })
-    );
-  }
-
-  function collectResearchFacets(videos = []) {
-    const companies = videos.flatMap(video =>
-      Array.isArray(video.companies) ? video.companies : []
-    );
-
-    return {
-      sectors: uniqueSorted(companies.map(company =>
-        String(company.sector || "").trim()
-      )),
-      sentiments: uniqueSorted(companies.map(company =>
-        String(company.sentiment || "").trim().toLowerCase()
-      )),
-      callTypes: uniqueSorted(companies.map(company =>
-        companyCallType(company)
-      ))
-    };
-  }
-
   return {
-    collectResearchFacets,
     filterResearchVideos,
     normalizeText,
+    performanceValue,
     sortResearchVideos,
     videoSearchText
   };

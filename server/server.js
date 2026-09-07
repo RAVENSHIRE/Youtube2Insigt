@@ -24,6 +24,9 @@ const {
   assignResearchSequences,
   sortResearchTimeline
 } = require("./presentation/researchTimeline");
+const {
+  attachPersistedVideoPerformance
+} = require("./presentation/videoPerformance");
 const { CreatorRepository } = require("./storage/creatorRepository");
 const {
   MarketSnapshotService,
@@ -1084,7 +1087,7 @@ function profileToChannel(profile) {
   };
 }
 
-function buildDashboard(videos, creatorProfile = null) {
+async function buildDashboard(videos, creatorProfile = null) {
   const companies = buildCompanyIndex(videos);
   const projectedVideos = Object.values(videos)
     .filter(research => research?.video?.id)
@@ -1115,8 +1118,12 @@ function buildDashboard(videos, creatorProfile = null) {
           }))
         : []
     }));
-  const dashboardVideos = sortResearchTimeline(
+  const dashboardTimeline = sortResearchTimeline(
     assignResearchSequences(projectedVideos)
+  );
+  const dashboardVideos = await attachPersistedVideoPerformance(
+    dashboardTimeline,
+    outcomeRepository
   );
 
   const channels = creatorProfile
@@ -1232,7 +1239,7 @@ app.get("/creators/resolve", (req, res) => {
   }
 });
 
-app.get("/creators/:creatorId/dashboard", (req, res) => {
+app.get("/creators/:creatorId/dashboard", async (req, res) => {
   try {
     if (!creatorStorageEnabled()) {
       return res.status(409).json({ error: "Creator-Storage ist nicht aktiv." });
@@ -1245,7 +1252,7 @@ app.get("/creators/:creatorId/dashboard", (req, res) => {
       return res.status(404).json({ error: "Creator nicht gefunden." });
     }
 
-    return res.json(buildDashboard(videos, profile));
+    return res.json(await buildDashboard(videos, profile));
   } catch (error) {
     console.error("GET CREATOR DASHBOARD ERROR:", error);
     return res.status(500).json({ error: "Creator-Dashboard konnte nicht geladen werden." });
@@ -1280,7 +1287,7 @@ app.post("/videos/:videoId/metadata", (req, res) => {
   }
 });
 
-app.get("/dashboard", (req, res) => {
+app.get("/dashboard", async (req, res) => {
   try {
     if (creatorStorageEnabled()) {
       const creatorId = cleanString(req.query.creatorId);
@@ -1293,10 +1300,10 @@ app.get("/dashboard", (req, res) => {
         });
       }
 
-      return res.json(buildDashboard(videos, profile));
+      return res.json(await buildDashboard(videos, profile));
     }
 
-    return res.json(buildDashboard(loadVideos()));
+    return res.json(await buildDashboard(loadVideos()));
   } catch (error) {
     console.error("GET DASHBOARD ERROR:", error);
 

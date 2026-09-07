@@ -33,10 +33,6 @@ const creatorList = document.getElementById("creatorList");
 const libraryControls = document.getElementById("libraryControls");
 const librarySearch = document.getElementById("librarySearch");
 const librarySort = document.getElementById("librarySort");
-const librarySector = document.getElementById("librarySector");
-const librarySentiment = document.getElementById("librarySentiment");
-const libraryCallType = document.getElementById("libraryCallType");
-const libraryResultSummary = document.getElementById("libraryResultSummary");
 const researchLibrary = globalThis.ResearchLibrary;
 
 let currentVideoId = null;
@@ -69,7 +65,6 @@ document.addEventListener("DOMContentLoaded", () => {
   libraryControls.addEventListener("input", handleLibraryControls);
   libraryControls.addEventListener("change", handleLibraryControls);
   libraryControls.addEventListener("submit", event => event.preventDefault());
-  libraryControls.addEventListener("reset", handleLibraryReset);
   refreshPanel();
 });
 
@@ -592,10 +587,7 @@ function renderDashboard(data) {
 function defaultLibraryState() {
   return {
     query: "",
-    sort: "published-desc",
-    sector: "",
-    sentiment: "",
-    callType: ""
+    sort: "analyzed-desc"
   };
 }
 
@@ -609,52 +601,12 @@ function configureLibraryControls(videos, creatorId) {
     libraryState = defaultLibraryState();
   }
 
-  const facets = researchLibrary.collectResearchFacets(videos);
-  libraryState.sector = facets.sectors.includes(libraryState.sector)
-    ? libraryState.sector
-    : "";
-  libraryState.sentiment = facets.sentiments.includes(libraryState.sentiment)
-    ? libraryState.sentiment
-    : "";
-  libraryState.callType = facets.callTypes.includes(libraryState.callType)
-    ? libraryState.callType
-    : "";
-  setLibraryOptions(librarySector, "Alle Sektoren", facets.sectors);
-  setLibraryOptions(
-    librarySentiment,
-    "Alle Sentiments",
-    facets.sentiments,
-    sentimentLabel
-  );
-  setLibraryOptions(
-    libraryCallType,
-    "Alle Call-Typen",
-    facets.callTypes,
-    callTypeLabel
-  );
   syncLibraryControls();
-}
-
-function setLibraryOptions(select, emptyLabel, values, labelFor = value => value) {
-  const selectedValue = select.value;
-  select.innerHTML = [
-    `<option value="">${escapeHtml(emptyLabel)}</option>`,
-    ...values.map(value =>
-      `<option value="${escapeHtml(value)}">${escapeHtml(labelFor(value))}</option>`
-    )
-  ].join("");
-
-  if (values.includes(selectedValue)) {
-    select.value = selectedValue;
-  }
 }
 
 function syncLibraryControls() {
   librarySearch.value = libraryState.query;
   librarySort.value = libraryState.sort;
-  librarySector.value = libraryState.sector;
-  librarySentiment.value = libraryState.sentiment;
-  libraryCallType.value = libraryState.callType;
 }
 
 function handleLibraryControls(event) {
@@ -664,26 +616,15 @@ function handleLibraryControls(event) {
 
   libraryState = {
     query: librarySearch.value.trim(),
-    sort: librarySort.value,
-    sector: librarySector.value,
-    sentiment: librarySentiment.value,
-    callType: libraryCallType.value
+    sort: librarySort.value
   };
   renderResearchLibrary();
-}
-
-function handleLibraryReset(event) {
-  event.preventDefault();
-  libraryState = defaultLibraryState();
-  syncLibraryControls();
-  renderResearchLibrary();
-  librarySearch.focus();
 }
 
 function renderResearchLibrary() {
   const filteredVideos = researchLibrary.filterResearchVideos(
     visibleVideos,
-    libraryState
+    libraryState.query
   );
   const sortedVideos = researchLibrary.sortResearchVideos(
     filteredVideos,
@@ -696,26 +637,6 @@ function renderResearchLibrary() {
   videoCount.textContent = filteredCount === totalCount
     ? `${totalCount} ${totalCount === 1 ? "Video" : "Videos"}`
     : `${filteredCount}/${totalCount} Videos`;
-  libraryResultSummary.textContent = filteredCount === totalCount
-    ? `${totalCount} ${totalCount === 1 ? "Report" : "Reports"}`
-    : `${filteredCount} von ${totalCount} Reports`;
-}
-
-function sentimentLabel(value) {
-  return ({
-    bull: "Bullish",
-    neutral: "Neutral",
-    bear: "Bearish"
-  })[value] || value;
-}
-
-function callTypeLabel(value) {
-  return ({
-    mention: "Mention",
-    view: "View",
-    actionable: "Actionable",
-    targeted: "Targeted"
-  })[value] || value;
 }
 
 function renderChannel(channel, data) {
@@ -978,6 +899,7 @@ function renderVideos(videos) {
     const date = formatDate(video.publishedAt || video.analyzedAt);
     const isCurrent = video.id === currentVideoId;
     const reportNumber = Number(video.analysisSequence) || index + 1;
+    const averagePerformance = researchLibrary.performanceValue(video);
 
     return `
       <article class="video-item ${isCurrent ? "is-current" : ""}" data-video-id="${escapeHtml(video.id)}">
@@ -987,6 +909,9 @@ function renderVideos(videos) {
               <span>Report ${String(reportNumber).padStart(2, "0")}</span>
               <i class="meta-divider" aria-hidden="true"></i>
               <span>${escapeHtml(date)}</span>
+              ${averagePerformance === null
+                ? ""
+                : `<span class="video-performance-label ${averagePerformance >= 0 ? "is-positive" : "is-negative"}">${averagePerformance >= 0 ? "+" : ""}${escapeHtml(formatNumber(averagePerformance))} %</span>`}
               ${isCurrent ? '<span class="current-video-label">Aktuelles Video</span>' : ""}
             </div>
             <h2 class="video-title">
