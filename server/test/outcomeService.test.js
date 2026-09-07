@@ -78,13 +78,14 @@ test("normalizes provider epoch seconds to an exact ISO timestamp", () => {
   assert.equal(result.source, "provider_quote");
 });
 
-test("uses the exact evaluation time when the provider exposes only a date", () => {
+test("never presents evaluation time as quote time when the provider exposes only a date", () => {
   const result = normalizeQuoteTimestamp({
     current: { datetime: "2026-09-02" }
   }, "2026-09-02T12:00:00.000Z");
 
-  assert.equal(result.timestamp, "2026-09-02T12:00:00.000Z");
-  assert.equal(result.source, "evaluation_time");
+  assert.equal(result.timestamp, null);
+  assert.equal(result.source, "provider_date_only");
+  assert.equal(result.date, "2026-09-02");
 });
 
 test("caches a completed outcome and avoids duplicate provider credits", async () => {

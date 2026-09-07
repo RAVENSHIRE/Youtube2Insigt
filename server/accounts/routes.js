@@ -16,12 +16,20 @@ function creatorOf(report) {
     subscriber_count: channel.subscriber_count || null, total_videos: channel.total_videos || null,
     analyzed_videos: 0 };
 }
-function profiles(reports) {
+function profiles(reports, selections = []) {
   const map = new Map();
   for (const report of reports) {
     const profile = creatorOf(report);
     if (!map.has(profile.creator_id)) map.set(profile.creator_id, profile);
     map.get(profile.creator_id).analyzed_videos++;
+  }
+  for (const channel of selections) {
+    const already = [...map.values()].some(p => p.youtube_channel_id === channel.id ||
+      (channel.handle && String(p.handle).toLowerCase() === channel.handle.toLowerCase()));
+    if (already) continue;
+    const profile = creatorOf({ video: { creator: channel.name, channel: { ...channel,
+      youtube_channel_id: channel.id.startsWith("UC") ? channel.id : null, handle: channel.handle || null } } });
+    if (!map.has(profile.creator_id)) map.set(profile.creator_id, profile);
   }
   return [...map.values()];
 }
@@ -77,10 +85,10 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   app.get('/health', (req, res) => res.json({ status: 'ok', analysisVersion: 8, accountStorage: 'sqlite-v1',
     analysisConfigured: Boolean(dependencies.analysisConfigured), billingConfigured: client.isConfigured() && Boolean(env.STRIPE_WEBHOOK_SECRET),
     emailConfigured: mailer.isConfigured(), marketDataCommercial: env.COMMERCIAL_MARKET_DATA_APPROVED === 'true',
-    youtubeSync: env.YOUTUBE_OAUTH_CLIENT_ID && env.YOUTUBE_OAUTH_CLIENT_SECRET ? 'configured_approval_unverified' : 'manual_only' }));
+    youtubeSync: env.YOUTUBE_OAUTH_CLIENT_ID && env.YOUTUBE_OAUTH_CLIENT_SECRET && env.APP_ENCRYPTION_KEY ? 'configured_approval_unverified' : 'manual_only' }));
   app.get('/config', (req, res) => res.json({ accountRequired: true, freeAnalyses: 1, proMonthlyAnalyses: store.proCredits,
-    billingAvailable: client.isConfigured(), analysisAvailable: Boolean(dependencies.analysisConfigured),
-    youtubeSyncAvailable: Boolean(env.YOUTUBE_OAUTH_CLIENT_ID && env.YOUTUBE_OAUTH_CLIENT_SECRET), marketDataAvailable: false }));
+    billingAvailable: client.isConfigured() && Boolean(env.STRIPE_WEBHOOK_SECRET), analysisAvailable: Boolean(dependencies.analysisConfigured),
+    youtubeSyncAvailable: Boolean(env.YOUTUBE_OAUTH_CLIENT_ID && env.YOUTUBE_OAUTH_CLIENT_SECRET && env.APP_ENCRYPTION_KEY), marketDataAvailable: env.COMMERCIAL_MARKET_DATA_APPROVED === 'true' }));
   app.post('/auth/register', limited('register', 5, 3600000), asyncRoute(async (req, res) => {
     if (!mailer.isConfigured()) throw new AppError('EMAIL_NOT_CONFIGURED', 'Registrierung wartet auf bestätigten E-Mail-Versand.', 503);
     const email = emailAddress(req.body.email), password = await passwordHash(req.body.password);
@@ -108,7 +116,10 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   }));
   app.post('/auth/logout', auth, (req, res) => { store.logout(bearer(req)); res.clearCookie('yt_session', { path: '/' }); res.json({ ok: true }); });
   app.get('/me', auth, (req, res) => res.json(store.account(req.user.id)));
-  app.post('/billing/checkout', auth, limited('checkout', 10), asyncRoute(async (req, res) => res.json(await billing.checkout(req.user.id))));
+  app.post('/billing/checkout', auth, limited('checkout', 10), asyncRoute(async (req, res) => {
+    if (!env.STRIPE_WEBHOOK_SECRET) throw new AppError('BILLING_NOT_CONFIGURED', 'Abos warten auf den verifizierten Webhook.', 503);
+    res.json(await billing.checkout(req.user.id));
+  }));
   app.post('/billing/portal', auth, limited('portal', 10), asyncRoute(async (req, res) => res.json(await billing.portal(req.user.id))));
   app.post('/analyze', auth, limited('analyze', 30), asyncRoute(async (req, res) => {
     if (!validVideo(req.body.videoId)) throw new AppError('VIDEO_INVALID', 'Ungültige Video-ID.');
@@ -136,7 +147,8 @@ function installAccounts(app, dependencies = {}, env = process.env) {
     // Browser metadata must not overwrite canonical source identity/publication.
     res.json(report);
   });
-  const getProfiles = user => profiles(store.library(user.id));
+  const selections = userId => store.db.prepare('SELECT body FROM creator_selections WHERE user_id=?').all(userId).map(row => JSON.parse(row.body));
+  const getProfiles = user => profiles(store.library(user.id), selections(user.id));
   app.get('/creators', auth, (req, res) => {
     const creators = getProfiles(req.user).map(dependencies.profileToChannel);
     res.json({ creators, totalCreators: creators.length, totalAnalyzedVideos: creators.reduce((n, c) => n + c.analyzedVideos, 0) });
@@ -149,7 +161,7 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   });
   const dashboardFor = async (user, creatorId = null) => {
     const all = store.library(user.id);
-    const profile = creatorId ? profiles(all).find(p => p.creator_id === creatorId) : null;
+    const profile = creatorId ? profiles(all, selections(user.id)).find(p => p.creator_id === creatorId) : null;
     if (creatorId && !profile) throw new AppError('CREATOR_NOT_FOUND', 'Creator nicht gefunden.', 404);
     const records = all.filter(report => !creatorId || creatorOf(report).creator_id === creatorId);
     const result = await dependencies.buildDashboard(Object.fromEntries(records.map(report => [report.video.id, report])), profile);

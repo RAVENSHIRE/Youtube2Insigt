@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3000";
+const API_URL = AppApi.base;
 const OUTCOME_CACHE_TTL_MS = 60_000;
 
 const COLORS = [
@@ -40,6 +40,7 @@ let currentMetadata = null;
 let lastDashboard = null;
 let refreshTimer = null;
 let isRefreshing = false;
+let refreshEpoch = 0;
 let refreshQueued = false;
 let visibleVideos = [];
 let visibleCompanyReports = [];
@@ -55,6 +56,7 @@ let libraryState = defaultLibraryState();
 const outcomeCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("analyzeCurrent").addEventListener("click", analyzeCurrentExplicitly);
   refreshButton.addEventListener("click", refreshPanel);
   companyDonut.addEventListener("click", handleCompanySelection);
   companyDonut.addEventListener("keydown", handleCompanyKeyboardSelection);
@@ -66,6 +68,16 @@ document.addEventListener("DOMContentLoaded", () => {
   libraryControls.addEventListener("change", handleLibraryControls);
   libraryControls.addEventListener("submit", event => event.preventDefault());
   refreshPanel();
+});
+
+document.addEventListener("accountStatus", event => showStatus(event.detail.message, event.detail.error));
+document.addEventListener("accountChanged", () => {
+  refreshEpoch++;
+  lastDashboard = null; creators = []; selectedCreatorId = null; selectedVideoId = null; selectedCompanyKey = null;
+  visibleVideos = []; visibleCompanyReports = []; outcomeCache.clear();
+  videoList.replaceChildren(); reportInspector.replaceChildren(); creatorList.replaceChildren();
+  document.getElementById("researchAnswer").textContent = ""; document.getElementById("researchCitations").replaceChildren();
+  renderEmpty("Bibliothek wird geladen", ""); refreshPanel();
 });
 
 chrome.tabs.onActivated.addListener(() => {
@@ -102,10 +114,19 @@ async function refreshPanel() {
   }
 
   isRefreshing = true;
+  const epoch = refreshEpoch;
   setLoading(true);
+  document.getElementById("analysisOffer").classList.add("hidden");
   hideStatus();
 
   try {
+    await AppApi.ready;
+    const account = await AppApi.currentAccount();
+    if (epoch !== refreshEpoch) return;
+    if (AppApi.config.accountRequired && !account && AppApi.scope !== "examples") {
+      renderEmpty("Deine Research Library", "Melde dich an oder öffne die separate Beispielbibliothek. Eine persönliche Videoanalyse ist kostenlos.");
+      return;
+    }
     const context = await getActiveContext();
     currentVideoId = context.videoId;
     currentMetadata = context.metadata;
@@ -124,6 +145,7 @@ async function refreshPanel() {
     }
 
     creators = await getCreators();
+    if (epoch !== refreshEpoch) return;
     const activeCreator = currentMetadata
       ? await resolveCreator(currentMetadata)
       : null;
@@ -139,6 +161,7 @@ async function refreshPanel() {
 
     if (selectedCreatorId) {
       const dashboard = await getDashboard(selectedCreatorId);
+      if (epoch !== refreshEpoch) return;
       lastDashboard = { creatorId: selectedCreatorId, data: dashboard };
       renderDashboard(dashboard);
     } else {
@@ -154,6 +177,7 @@ async function refreshPanel() {
       showStatus(friendlyError(currentError), true);
     }
   } catch (error) {
+    if (epoch !== refreshEpoch) return;
     console.error("Side panel error:", error);
 
     if (lastDashboard?.data) {
@@ -218,18 +242,15 @@ async function ensureCurrentVideo(context) {
   metadata = await enrichChannelMetadata(metadata, research);
 
   if (research) {
-    research = await updateStoredMetadata(context.videoId, metadata)
+    research = AppApi.scope === "examples" ? research : await updateStoredMetadata(context.videoId, metadata)
       .catch(() => research);
   } else {
-    showStatus("Video wird analysiert – das kann einen Moment dauern …");
-
-    await analyzeVideo({
-      videoId: context.videoId,
-      ...metadata
-    });
-
-    research = await getStoredVideo(context.videoId);
+    const offer = document.getElementById("analysisOffer");
+    offer.classList.toggle("hidden", AppApi.scope === "examples");
+    document.getElementById("analysisOfferText").textContent = metadata.title || "Aktuelles YouTube-Video";
+    return { research: null, metadata };
   }
+  document.getElementById("analysisOffer").classList.add("hidden");
 
   if (!research?.video) {
     throw new Error("Research-Daten sind noch nicht verfügbar.");
@@ -239,6 +260,28 @@ async function ensureCurrentVideo(context) {
     research,
     metadata
   };
+}
+
+async function analyzeCurrentExplicitly() {
+  const button = document.getElementById("analyzeCurrent");
+  button.disabled = true;
+  try {
+    const context = await getActiveContext();
+    if (!isValidVideoId(context.videoId) || AppApi.scope === "examples") throw new Error("Öffne das gewünschte Video und wähle Meine Bibliothek.");
+    showStatus("Eine Analyse reserviert. Bei einem Fehler wird sie freigegeben.");
+    const epoch = refreshEpoch;
+    let result = await AppApi.json("/analyze", { videoId: context.videoId, ...(context.metadata || {}), confirmCredit: true });
+    const deadline = Date.now() + 250000;
+    while (result.state === "reserved" && Date.now() < deadline && epoch === refreshEpoch) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      result = await AppApi.json(`/analysis-jobs/${encodeURIComponent(result.jobId)}`);
+    }
+    if (epoch !== refreshEpoch) return;
+    if (result.state === "failed") throw new Error(`${result.error} (${result.code})`);
+    if (result.state === "reserved") showStatus("Auftrag läuft noch. Gespeicherte Reports erscheinen nach Abschluss.");
+    else { await refreshPanel(); showStatus("Report gespeichert. Erneutes Lesen kostet keine Analyse."); }
+  } catch (error) { showStatus(friendlyError(error), true); }
+  finally { button.disabled = false; document.dispatchEvent(new Event("accountRefresh")); }
 }
 
 async function enrichChannelMetadata(metadata, research) {
@@ -292,7 +335,7 @@ async function requestChannelTotalVideos(channelUrl) {
 }
 
 async function getCreators() {
-  const response = await fetch(`${API_URL}/creators`);
+  const response = await AppApi.fetch(`${API_URL}/creators`);
   const data = await parseResponse(response);
 
   if (!response.ok) {
@@ -322,7 +365,7 @@ async function resolveCreator(metadata) {
     return null;
   }
 
-  const response = await fetch(`${API_URL}/creators/resolve?${params}`);
+  const response = await AppApi.fetch(`${API_URL}/creators/resolve?${params}`);
   if (response.status === 404) {
     return null;
   }
@@ -336,7 +379,7 @@ async function resolveCreator(metadata) {
 }
 
 async function getDashboard(creatorId) {
-  const response = await fetch(
+  const response = await AppApi.fetch(
     `${API_URL}/creators/${encodeURIComponent(creatorId)}/dashboard`
   );
   const data = await parseResponse(response);
@@ -378,7 +421,7 @@ function normalizeCreator(creator) {
 }
 
 async function getStoredVideo(videoId) {
-  const response = await fetch(
+  const response = await AppApi.fetch(
     `${API_URL}/videos/${encodeURIComponent(videoId)}`
   );
 
@@ -396,7 +439,7 @@ async function getStoredVideo(videoId) {
 }
 
 async function updateStoredMetadata(videoId, metadata) {
-  const response = await fetch(
+  const response = await AppApi.fetch(
     `${API_URL}/videos/${encodeURIComponent(videoId)}/metadata`,
     {
       method: "POST",
@@ -455,7 +498,7 @@ async function getYouTubeMetadata(tab) {
 }
 
 async function analyzeVideo(payload) {
-  const response = await fetch(`${API_URL}/analyze`, {
+  const response = await AppApi.fetch(`${API_URL}/analyze`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -1296,6 +1339,9 @@ function renderCompanyReport(report, index, videoId) {
 }
 
 function renderOutcomePlaceholder(videoId, companyIndex) {
+  if (AppApi.scope === "examples" || (AppApi.config?.accountRequired && !AppApi.config.marketDataAvailable)) {
+    return '<section class="outcome-card"><small>Marktdaten sind in dieser Beta bis zur kommerziellen Freigabe deaktiviert.</small></section>';
+  }
   return `<section class="outcome-card is-loading" data-outcome-card data-video-id="${escapeHtml(videoId)}" data-company-index="${companyIndex}">Marktdaten werden geladen …</section>`;
 }
 
@@ -1314,7 +1360,7 @@ async function hydrateOpenOutcomeCards() {
         : null;
       if (!outcome) {
         outcomeCache.delete(key);
-        const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
+        const response = await AppApi.fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
         outcome = await parseResponse(response);
         if (!response.ok) {
           const error = new Error(outcome.error || "Marktdaten nicht verfügbar.");
@@ -1413,10 +1459,15 @@ function renderOutcomeCard(card, outcome) {
     isLifecyclePending && outcome.current_price == null
       ? outcome.current_symbol || "Symbol offen"
       : formatAmount(outcome.current_price, currency),
-    outcome.current_price_timestamp
+    outcome.current_price_timestamp_source === "provider_quote" ? outcome.current_price_timestamp : null
   );
   appendOutcomePrice(prices, "Rendite", returnValue);
   card.append(prices);
+  if (outcome.current_price_timestamp_source !== "provider_quote") {
+    appendTextElement(card, "small", outcome.current_price_date ? `Kursdatum ${outcome.current_price_date} · genaue Kurszeit unbekannt` : "Genaue Kurszeit vom Anbieter nicht verfügbar.");
+  }
+  if (outcome.price_freshness === "stale_or_delayed") appendTextElement(card, "small", "Kurs veraltet oder verzögert.");
+  if (outcome.quote_retrieved_at) appendTextElement(card, "small", `Abgerufen: ${formatDateTime(outcome.quote_retrieved_at)}`);
 
   if (advancedMetrics.length || !isLifecyclePending) {
     const metrics = document.createElement("div");
@@ -1433,7 +1484,7 @@ function renderOutcomeCard(card, outcome) {
   if (outcome.status === "partial") {
     appendOutcomeWarning(
       card,
-      "Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert.",
+      "Teilresultat: letzter verfügbarer Kurs, einzelne Historien-/Benchmarkdaten temporär limitiert.",
       "Nach 60 Sekunden erneut versuchen"
     );
   } else if (outcome.status === "stale") {
@@ -1550,6 +1601,9 @@ function renderCompanyReportContent(report) {
   ].filter(Boolean);
 
   return `
+    ${report.tradingview_url && /^https:\/\/www\.tradingview\.com\/symbols\/[A-Z0-9.-]+-[A-Z0-9.%_-]+\/$/u.test(report.tradingview_url)
+      ? `<a class="report-video-link" href="${escapeHtml(report.tradingview_url)}" target="_blank" rel="noopener noreferrer">TradingView ↗</a>` : ""}
+    ${report.identity_conflict ? '<p class="report-missing">Unternehmensname und Symbol widersprechen sich. Marktdaten bleiben gesperrt.</p>' : ""}
     <div class="report-call-row">
       <span>Call-Typ</span>
       <span class="report-call-value">

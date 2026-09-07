@@ -733,6 +733,7 @@ async function analyzeTranscript({ source, title, creator, signal }) {
 // API metadata is authoritative; browser metadata may only enrich display fields.
 async function createVerifiedReport(input, { signal } = {}) {
   const authoritative = await youtubeMetadataService.getVideo(input.videoId);
+  const channel = await youtubeMetadataService.getChannel(authoritative.channelId).catch(() => null);
   const source = await sourceService.get(input.videoId, authoritative, { signal });
   const analysis = await analyzeTranscript({ source, title: authoritative.title, creator: authoritative.channelTitle, signal });
   return {
@@ -740,7 +741,7 @@ async function createVerifiedReport(input, { signal } = {}) {
     analysis_models: [GEMINI_MODEL], source, summary: analysis.summary, companies: analysis.companies,
     video: { id: input.videoId, title: authoritative.title, creator: authoritative.channelTitle,
       url: `https://www.youtube.com/watch?v=${input.videoId}`, published_at: authoritative.publishedAt,
-      analyzed_at: new Date().toISOString(), channel: { name: authoritative.channelTitle,
+      analyzed_at: new Date().toISOString(), channel: { ...(channel || {}), name: authoritative.channelTitle,
         youtube_channel_id: authoritative.channelId, url: `https://www.youtube.com/channel/${authoritative.channelId}` } }
   };
 }
@@ -1152,7 +1153,9 @@ async function buildDashboard(videos, creatorProfile = null) {
 
 const accountRuntime = !legacyMode ? require("./accounts/routes").installAccounts(app, {
   analyze: createVerifiedReport, analysisConfigured: Boolean(ai && youtubeMetadataService.isConfigured()),
-  buildDashboard, profileToChannel
+  buildDashboard, profileToChannel,
+  extend: require("./onboarding/routes").createExtensions({ ai, model: GEMINI_MODEL, youtubeMetadataService,
+    buildDashboard, profileToChannel, outcomeService, snapshotProvider, resolveSnapshotCandidate })
 }) : null;
 
 app.post("/analyze", async (req, res) => {
@@ -1608,7 +1611,7 @@ function startServer(port = PORT) {
     console.log(`YT Investor Research API läuft auf http://localhost:${port}`);
     console.log(`Analysis Version: ${ANALYSIS_VERSION}`);
     console.log(`Gemini Model: ${GEMINI_MODEL}`);
-    console.log(`Storage Mode: ${creatorStorageEnabled() ? "creator-v2" : "legacy-flat"}`);
+    console.log(`Storage Mode: ${legacyMode ? (creatorStorageEnabled() ? "creator-v2" : "legacy-flat") : "account-sqlite-v1"}`);
     console.log(`Market Snapshots: ${marketSnapshotService ? "enabled" : "disabled"}`);
     console.log(`App mode: ${legacyMode ? "legacy-development-only" : "accounts"}`);
   });

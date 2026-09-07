@@ -29,6 +29,17 @@
       </button>
     </header>
 
+    <section class="account-strip" aria-label="Konto und Bibliothek">
+      <details id="accountTools"><summary><span id="accountLabel">Konto</span></summary>
+        <form id="panelLogin"><label>E-Mail<input id="panelEmail" type="email" autocomplete="email" required></label><label>Passwort<input id="panelPassword" type="password" autocomplete="current-password" minlength="12" required></label><button type="submit">Anmelden</button></form>
+        <div class="account-actions"><button id="openAccount" type="button">Konto &amp; Pro</button><button id="panelLogout" type="button" hidden>Abmelden</button></div>
+        <details class="creator-onboarding"><summary>Creator hinzufügen</summary><form id="manualCreator"><label>Kanal-URL oder @Handle<input id="creatorInput" placeholder="@IPOMarketWatch" required></label><button>Creator merken</button></form><button id="syncYoutube" type="button">YouTube-Abos verbinden (nur lesen)</button><button id="disconnectYoutube" type="button">YouTube trennen</button><div id="subscriptionChoices"></div></details>
+      </details>
+      <label class="scope-select"><span class="sr-only">Bibliothek auswählen</span><select id="libraryScope"><option value="personal">Meine Bibliothek</option><option value="examples">Beispielbibliothek</option></select></label>
+    </section>
+    <p id="exampleNotice" class="source-notice hidden">Beispielbibliothek · kuratierte Altberichte, keine persönlichen Analysen. Originalbelege und Zeitmarken noch nicht vollständig geprüft.</p>
+    <section id="analysisOffer" class="analysis-offer hidden"><p id="analysisOfferText"></p><button id="analyzeCurrent" type="button">Dieses Video analysieren · 1 Analyse</button></section>
+
     <div id="statusBar" class="status-bar hidden" role="status" aria-live="polite">
       <span class="status-pulse" aria-hidden="true"></span>
       <span id="statusText"></span>
@@ -96,6 +107,7 @@
         </form>
 
         <div id="videoList" class="video-list"></div>
+        <form id="askResearch" class="research-question"><label for="researchQuestion">Frag deine Research Library</label><div><input id="researchQuestion" maxlength="500" placeholder="Welche Risiken wurden genannt?" required><button type="submit">Fragen</button></div><p id="researchAnswer" aria-live="polite"></p><div id="researchCitations"></div></form>
       </section>
     </section>
 
@@ -111,8 +123,11 @@
     </section>
   </main>
 
+  <script src="config.js"></script>
+  <script src="api.js"></script>
   <script src="research-library.js"></script>
   <script src="evidence-ui.js"></script>
+  <script src="panel-account.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

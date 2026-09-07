@@ -1,0 +1,40 @@
+{
+  "review": {
+    "version": 1,
+    "reviewed_at": "2026-09-07",
+    "scope": "Existing user-supplied report excerpts: identity, presentation and removal of unsupported attribution or suspicious numeric claims. NOT independently verified against video audio.",
+    "source_timestamp_verification": "pending",
+    "release_requirement": "Review original video segments and confirm publication/redistribution approval before advertising these as verified examples."
+  },
+  "reports": [
+    {
+      "analysis_version": 7,
+      "example": true,
+      "video": { "id": "4u8dR2Dxcdc", "title": "21 YouTuber sind sich bei 5 Aktien einig. Meine Einstiegspunkte", "creator": "BWB - Business With Brian", "url": "https://www.youtube.com/watch?v=4u8dR2Dxcdc", "published_at": "2026-08-31T05:59:52-07:00", "analyzed_at": "2026-08-31T14:18:49.881Z", "channel": { "name": "BWB - Business With Brian", "url": "https://www.youtube.com/@BusinessWithBrian", "handle": "@BusinessWithBrian" } },
+      "summary": "Beispielausschnitt aus einem bestehenden Report: Das Video stellt unterschiedliche Bewertungen großer Technologieunternehmen gegenüber. Die Urheberschaft der zitierten Einschätzungen ist noch nicht abschließend geprüft.",
+      "companies": [
+        { "company": "Alphabet", "ticker": "GOOGL", "asset_type": "stock", "sector": "Communication Services", "sub_sector": "Interactive Media", "sentiment": "neutral", "call_type": "view", "action": "none", "thesis": "Gewinn- und Umsatzbewertung werden unterschiedlich eingeordnet.", "risks": [], "price_targets": [], "levels": [], "evidence": ["on earnings, Alphabet has almost never been cheaper against itself in 10 years. But on sales, my my system puts it in the richest few% of those same 10 years."] },
+        { "company": "Microsoft", "ticker": "MSFT", "asset_type": "stock", "sector": "Technology", "sub_sector": "Software", "sentiment": "neutral", "call_type": "view", "action": "none", "thesis": "Der Ausschnitt enthält eine zurückhaltende Bewertung von Hyperscalern. Die zitierte Person ist im Altbericht nicht eindeutig zugeordnet.", "risks": [], "price_targets": [], "levels": [], "evidence": ["Google is selling quite a bit above its historical averages and does look like the most expensive hyperscaler in the market right now. And that is the reason why I am not buying Google or Microsoft"] }
+      ]
+    },
+    {
+      "analysis_version": 7,
+      "example": true,
+      "video": { "id": "QzRxievcmug", "title": "Opening Bell: Intuit, Zoom, Kohl's, Nvidia, Salesforce; Crowdstrike, SolarEdge", "creator": "DER AKTIONÄR TV", "url": "https://www.youtube.com/watch?v=QzRxievcmug", "published_at": "2026-08-26T09:22:01-07:00", "analyzed_at": "2026-08-31T14:28:34.133Z", "channel": { "name": "DER AKTIONÄR TV", "url": "https://www.youtube.com/@der.aktionaer", "handle": "@der.aktionaer" } },
+      "summary": "Beispielausschnitt: Im bestehenden Report werden Nvidia-Kursziele und ein Stopp-Level für investierte Zuschauer festgehalten. Dies sind Aussagen des Videos, keine aktuellen Marktkurse und keine Empfehlungen der Anwendung.",
+      "companies": [
+        { "company": "Nvidia", "ticker": "NVDA", "asset_type": "stock", "sector": "Technology", "sub_sector": "Semiconductors", "sentiment": "bull", "call_type": "view", "action": "none", "thesis": "Für bereits Investierte wird auf die Beachtung eines Stoppkurses verwiesen.", "risks": [], "price_targets": [{ "value": 268.5, "currency": "USD", "source": "Altbericht: DER AKTIONÄR", "context": "Im Video genanntes Ziel; Quellsegmentprüfung offen." }], "levels": [{ "type": "stop_loss", "value": 157, "currency": "USD", "context": "Im Video genannter Stopp; Quellsegmentprüfung offen." }], "evidence": ["für diejenigen, die dabei, die investiert sind, heißt es da den Stoppkurs zu beachten, aber da haben wir noch jede Menge Platz nach unten. Der ist hier ungefähr bei 157$ platziert.", "grundsätzlich haben wir ein Ziel von 268,50, also da haben wir hier auch noch bei jede Menge Platz nach oben."] }
+      ]
+    },
+    {
+      "analysis_version": 7,
+      "example": true,
+      "video": { "id": "J3Y_JBATcWg", "title": "Diese 1-Dollar-Aktie könnte ihren Wert um das 50-fache steigern", "creator": "IPO Market Watch", "url": "https://www.youtube.com/watch?v=J3Y_JBATcWg", "published_at": "2025-04-25", "analyzed_at": null, "channel": { "name": "IPO Market Watch", "url": "https://www.youtube.com/@IPOMarketWatch", "handle": "@IPOMarketWatch" } },
+      "summary": "Beispielausschnitt aus dem vom Nutzer bereitgestellten Report: Rocket Lab und AST SpaceMobile erscheinen als Rückblicke auf frühere Ideen. Das wird nicht als neue Kaufempfehlung gewertet.",
+      "companies": [
+        { "company": "Rocket Lab", "ticker": "RKLB", "asset_type": "stock", "sector": "Industrials", "sub_sector": "Aerospace & Defense", "sentiment": "bull", "call_type": "view", "action": "none", "thesis": "Rückblick auf eine frühere Vorstellung; der aktuelle Ausschnitt ist kein Nachweis des ursprünglichen Einstiegstermins.", "risks": [], "price_targets": [], "levels": [], "evidence": ["That was Rocket Lab, right? So, that was a huge opportunity, and the stock is still up like 400% since that time"] },
+        { "company": "AST SpaceMobile", "ticker": "ASTS", "asset_type": "stock", "sector": "Communication Services", "sub_sector": "Satellite Communications", "sentiment": "bull", "call_type": "view", "action": "none", "thesis": "Historische Selbstreferenz des Creators, keine neue Handlung aus dem Rückblick ableiten.", "risks": [], "price_targets": [], "levels": [], "evidence": ["The other one was ASTS, if you remember. I did a YouTube video for ASTS when it was trading at $2.98. Called it a buy."] }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 const { resolveInstrumentIdentity } = require("./instrumentResolver");
+const { tradingViewLink, identityConflict } = require("./marketIdentity");
 
 function cleanString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -25,6 +26,8 @@ function projectCompanyForRead(company, publishedAt = null) {
 
   return {
     ...company,
+    tradingview_url: tradingViewLink(company),
+    identity_conflict: identityConflict(company),
     ticker,
     ...(reportedTicker && reportedTicker !== ticker
       ? { reported_symbol: reportedTicker }

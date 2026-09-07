@@ -60,5 +60,5 @@ test("keeps unmanaged symbols unchanged in the read projection", () => {
   const stored = { company: "Nvidia", ticker: "NVDA" };
   const projected = projectCompanyForRead(stored, "2026-08-26T16:22:01.000Z");
 
-  assert.deepEqual(projected, stored);
+  assert.deepEqual(projected, { ...stored, tradingview_url: null, identity_conflict: false });
 });
