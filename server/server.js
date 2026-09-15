@@ -5,6 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const { SourceService, AudioFallback } = require("./evidence/sourceService");
 const { validateReport } = require("./evidence/sourceIntegrity");
+const { atStage } = require("./accounts/analysisDiagnostics");
+const { createReportAnalyzer } = require("./services/verifiedAnalysisService");
 const { GoogleGenAI } = require("@google/genai");
 const { getQuote } = require("./marketData");
 const { classifyCompany } = require("./classification/sectorTaxonomy");
@@ -724,28 +726,16 @@ Antworte ausschließlich gemäß JSON-Schema.
 `;
 }
 
-async function analyzeTranscript({ source, title, creator, signal }) {
-  const data = await generateStructured(buildAnalysisPrompt({ source, title, creator }), { signal });
-  const verified = validateReport(data, source);
+async function analyzeTranscript({ source, title, creator, signal, onStage }) {
+  const data = await atStage('model_response', () => generateStructured(buildAnalysisPrompt({ source, title, creator }), { signal }), onStage);
+  const verified = await atStage('evidence_validation', () => validateReport(data, source), onStage);
   return { ...verified, summary: cleanString(verified.summary), companies: mergeCompanies(verified.companies) };
 }
 
 // Shared pure orchestration for both legacy development and account-owned reports.
 // API metadata is authoritative; browser metadata may only enrich display fields.
-async function createVerifiedReport(input, { signal } = {}) {
-  const authoritative = await youtubeMetadataService.getVideo(input.videoId);
-  const channel = await youtubeMetadataService.getChannel(authoritative.channelId).catch(() => null);
-  const source = await sourceService.get(input.videoId, authoritative, { signal });
-  const analysis = await analyzeTranscript({ source, title: authoritative.title, creator: authoritative.channelTitle, signal });
-  return {
-    analysis_version: ANALYSIS_VERSION, evidence_version: 1, report_language: source.language,
-    analysis_models: [GEMINI_MODEL], source, summary: analysis.summary, companies: analysis.companies,
-    video: { id: input.videoId, title: authoritative.title, creator: authoritative.channelTitle,
-      url: `https://www.youtube.com/watch?v=${input.videoId}`, published_at: authoritative.publishedAt,
-      analyzed_at: new Date().toISOString(), channel: { ...(channel || {}), name: authoritative.channelTitle,
-        youtube_channel_id: authoritative.channelId, url: `https://www.youtube.com/channel/${authoritative.channelId}` } }
-  };
-}
+const createVerifiedReport = createReportAnalyzer({ youtubeMetadataService, sourceService, analyzeTranscript,
+  analysisVersion: ANALYSIS_VERSION, model: GEMINI_MODEL });
 
 function normalizeChannel({
   creator,

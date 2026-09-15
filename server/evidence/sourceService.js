@@ -1,4 +1,4 @@
-const { YoutubeTranscript } = require('youtube-transcript');
+const { YoutubeTranscript, YoutubeTranscriptNotAvailableLanguageError } = require('youtube-transcript');
 const { SourceError, makeSource, languageCode } = require('./sourceIntegrity');
 
 class SourceService {
@@ -28,7 +28,16 @@ class SourceService {
       return response;
     };
     try {
-      const items = await this.transcript.fetchTranscript(videoId, { fetch: boundedFetch });
+      const originalLanguage = languageCode(metadata.language);
+      const config = { fetch: boundedFetch, ...(['de', 'en'].includes(originalLanguage) ? { lang: originalLanguage } : {}) };
+      let items;
+      try { items = await this.transcript.fetchTranscript(videoId, config); }
+      catch (error) {
+        // Some original tracks use en-US/de-DE instead of en/de. Retry only that
+        // metadata-verified language, never an arbitrary or translated track.
+        if (!(error instanceof YoutubeTranscriptNotAvailableLanguageError) || !config.lang || metadata.language === config.lang) throw error;
+        items = await this.transcript.fetchTranscript(videoId, { ...config, lang: metadata.language });
+      }
       const lang = languageCode(items[0]?.lang);
       if (metadata.language && ['de', 'en'].includes(languageCode(metadata.language)) && languageCode(metadata.language) !== lang) {
         throw new SourceError('SOURCE_LANGUAGE_MISMATCH', 'Die Untertitel entsprechen nicht der Originalsprache.');
@@ -38,7 +47,9 @@ class SourceService {
       if (signal?.aborted) throw error;
       if (this.audioFallback && durationSeconds <= 900) return this.audioFallback.transcribe(videoId, metadata, { signal });
       if (error instanceof SourceError) throw error;
-      throw new SourceError('TRANSCRIPT_UNAVAILABLE', 'Originaltranskript nicht verfügbar. Audio-Fallback ist nicht eingerichtet oder das Video überschreitet 15 Minuten. Keine Analyse verbraucht.');
+      const failure = new SourceError('TRANSCRIPT_UNAVAILABLE', 'Originaltranskript nicht verfügbar. Audio-Fallback ist nicht eingerichtet oder das Video überschreitet 15 Minuten. Keine Analyse verbraucht.');
+      failure.cause = error;
+      throw failure;
     }
   }
 }

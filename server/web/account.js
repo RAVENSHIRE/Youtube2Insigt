@@ -77,8 +77,9 @@ byId('analysisForm').addEventListener('submit', run(async () => {
       message('Analyse läuft. Eine Analyse reserviert; bei Fehler erfolgt die Freigabe.');
       await new Promise(resolve => setTimeout(resolve, 1500)); job = await request(`/analysis-jobs/${encodeURIComponent(job.jobId)}`);
     }
-    message(job.state === 'complete' ? 'Report gespeichert.' : job.error || 'Auftrag läuft noch. Später aktualisieren.', job.state === 'failed');
+    const failure = job.state === 'failed' ? `${job.error} Code: ${job.code || 'ANALYSIS_FAILED'} · Auftrag: ${job.jobId}` : null;
     await refresh();
+    message(job.state === 'complete' ? 'Report gespeichert.' : failure || 'Auftrag läuft noch. Später aktualisieren.', job.state === 'failed');
   } finally { byId('analyze').disabled = false; }
 }));
 (async () => {

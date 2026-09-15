@@ -46,7 +46,7 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   const mailer = dependencies.mailer || new Mailer({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM, publicUrl });
   const client = dependencies.stripeClient || new StripeClient({ secret: env.STRIPE_SECRET_KEY, priceId: env.STRIPE_PRO_PRICE_ID, publicUrl });
   const billing = new BillingService({ store, client, webhookSecret: env.STRIPE_WEBHOOK_SECRET });
-  const jobs = new AnalysisJobs({ store, analyze: dependencies.analyze });
+  const jobs = new AnalysisJobs({ store, analyze: dependencies.analyze, logger: dependencies.analysisLogger || console });
   const allowedOrigins = new Set([origin, ...(env.EXTENSION_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean)]);
   if (!production) allowedOrigins.add('http://localhost:3000');
   app.disable('x-powered-by');
