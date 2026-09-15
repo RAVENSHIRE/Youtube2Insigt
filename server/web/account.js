@@ -27,12 +27,36 @@ async function refresh() {
   byId('personalLibrary').innerHTML = data.videos.length ? data.videos.map(video => `<article class="library-entry"><small>Report ${video.analysisSequence}</small><h3><a target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}">${safe(video.title)}</a></h3><p>${safe(video.summary)}</p></article>`).join('') : '<p>Deine persönliche Bibliothek startet leer. Nur bewusst gespeicherte Analysen erscheinen hier.</p>';
 }
 byId('authForm').addEventListener('submit', run(async () => { await request('/auth/login', { email: byId('email').value, password: byId('password').value }); byId('password').value = ''; message('Angemeldet.'); await refresh(); }));
-byId('register').addEventListener('click', run(async () => {
-  if (!byId('authForm').reportValidity()) return;
-  const result = await request('/auth/register', { email: byId('email').value, password: byId('password').value });
-  byId('password').value = ''; message(result.message);
+function registrationMode(enabled) {
+  byId('authForm').hidden = enabled; byId('registerForm').hidden = !enabled;
+  for (const id of ['password', 'registerPassword', 'confirmPassword']) byId(id).value = '';
+  byId(enabled ? 'registerEmail' : 'email').focus();
+}
+byId('register').addEventListener('click', () => {
+  byId('registerEmail').value = byId('email').value;
+  registrationMode(true); message('');
+});
+byId('backToLogin').addEventListener('click', () => { registrationMode(false); message(''); });
+byId('registerForm').addEventListener('submit', run(async () => {
+  if (byId('submitRegistration').disabled || !byId('registerForm').reportValidity()) return;
+  const email = byId('registerEmail').value.trim().toLowerCase();
+  const confirmEmail = byId('confirmEmail').value.trim().toLowerCase();
+  const password = byId('registerPassword').value, confirmPassword = byId('confirmPassword').value;
+  if (email !== confirmEmail) throw Error('Die E-Mail-Adressen stimmen nicht überein.');
+  if (password !== confirmPassword) throw Error('Die Passwörter stimmen nicht überein.');
+  byId('submitRegistration').disabled = true;
+  try {
+    const result = await request('/auth/register', { email, confirmEmail, password, confirmPassword });
+    byId('email').value = email; registrationMode(false); message(result.message);
+  } finally { byId('submitRegistration').disabled = false; }
 }));
-byId('reset').addEventListener('click', run(async () => { await request('/auth/password-reset', { email: byId('email').value }); message('Falls ein bestätigtes Konto existiert, wurde ein Link gesendet.'); }));
+byId('resendVerification').addEventListener('click', run(async () => {
+  if (byId('resendVerification').disabled || !byId('authForm').reportValidity()) return;
+  byId('resendVerification').disabled = true;
+  try { message((await request('/auth/resend-verification', { email: byId('email').value, password: byId('password').value })).message); }
+  finally { byId('resendVerification').disabled = false; }
+}));
+byId('reset').addEventListener('click', run(async () => { message((await request('/auth/password-reset', { email: byId('email').value })).message); }));
 byId('resetForm').addEventListener('submit', run(async () => { await request('/auth/password-reset/confirm', { token: resetToken, password: byId('newPassword').value }); resetToken = null; byId('newPassword').value = ''; byId('resetPanel').hidden = true; message('Passwort geändert. Bitte anmelden.'); await refresh(); }));
 byId('logout').addEventListener('click', run(async () => { await request('/auth/logout', {}); message('Abgemeldet.'); await refresh(); }));
 function redirectBilling(url) {

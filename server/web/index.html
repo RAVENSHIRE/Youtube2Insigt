@@ -9,6 +9,15 @@
       <label>Passwort<input id="password" type="password" autocomplete="current-password" required minlength="12" maxlength="128"></label>
       <div class="actions"><button type="submit">Anmelden</button><button type="button" id="register" class="secondary">Konto erstellen</button></div>
       <button type="button" id="reset" class="text-button">Passwort vergessen?</button>
+      <button type="button" id="resendVerification" class="text-button">Bestätigungslink erneut anfordern</button>
+    </form>
+    <form id="registerForm" hidden>
+      <h3>Konto erstellen</h3>
+      <label>E-Mail<input id="registerEmail" type="email" autocomplete="email" required maxlength="254"></label>
+      <label>E-Mail bestätigen<input id="confirmEmail" type="email" autocomplete="email" required maxlength="254"></label>
+      <label>Passwort (12 bis 128 Zeichen)<input id="registerPassword" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <label>Passwort bestätigen<input id="confirmPassword" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+      <div class="actions"><button id="submitRegistration" type="submit">Konto erstellen</button><button id="backToLogin" type="button" class="secondary">Zur Anmeldung</button></div>
     </form>
   </section>
   <section id="resetPanel" class="card" hidden><h2>Neues Passwort</h2><form id="resetForm"><label>Passwort (mindestens 12 Zeichen)<input id="newPassword" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label><button>Passwort speichern</button></form></section>

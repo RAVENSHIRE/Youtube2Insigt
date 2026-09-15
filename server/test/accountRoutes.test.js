@@ -23,7 +23,7 @@ test('HTTP onboarding: two accounts, explicit consumption, free limit, isolation
     return { status: response.status, body: await response.json() };
   }
   async function onboard(email) {
-    assert.equal((await request('/auth/register', { email, password: 'a sufficiently long password' })).status, 202);
+    assert.equal((await request('/auth/register', { email, confirmEmail: email, password: 'a sufficiently long password', confirmPassword: 'a sufficiently long password' })).status, 202);
     return (await request('/auth/verify', { token: mail.find(item => item.email === email).code })).body.token;
   }
   const alice = await onboard('alice@example.test'), bob = await onboard('bob@example.test');

@@ -91,8 +91,13 @@ The last command is a **production configuration check**, not a health probe.
 Exit 1 is expected for a localhost setup/missing credentials; exit 0 only means
 configuration is present, **not** that a provider, deployment or payments work.
 
-Open `http://localhost:3000/account/`, register, confirm the email, then sign into
+Open `http://localhost:3000/account/`, choose **Konto erstellen**, enter email,
+confirm email, password and confirm password, confirm the email, then sign into
 the panel with that account. One free analysis appears only after verification.
+Sign-in remains email + password. A pending account can request another link via
+**Bestätigungslink erneut anfordern** with its original credentials. Provider
+acceptance is not inbox delivery. Follow the current
+[authentication acceptance and email setup](AUTH_PRODUCTION_READINESS.md).
 The UI's Pro button opens Checkout; the verified webhook grants access, never the
 redirect URL. Missing mail/Stripe configuration fails clearly rather than faking it.
 

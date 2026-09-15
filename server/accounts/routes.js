@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('node:path');
 const { AccountStore, AppError, hash } = require('./store');
-const { token, emailAddress, passwordHash, passwordMatches, bearer, authMiddleware, Mailer } = require('./auth');
+const { token, emailAddress, registrationInput, passwordHash, passwordMatches, bearer, authMiddleware, Mailer } = require('./auth');
 const { BillingService, StripeClient } = require('./billing');
 const { AnalysisJobs } = require('./analysisJobs');
 const { projectResearchForRead } = require('../instruments/instrumentProjection');
@@ -83,6 +83,17 @@ function installAccounts(app, dependencies = {}, env = process.env) {
     res.cookie('yt_session', value, { httpOnly: true, secure: production, sameSite: 'strict', maxAge: 7 * 86400000, path: '/' });
     return res.json({ token: value, account: store.account(user.id) });
   };
+  const requireEmail = () => {
+    if (!mailer.isConfigured()) throw new AppError('EMAIL_NOT_CONFIGURED', 'E-Mail-Versand nicht eingerichtet. Betreiber: RESEND_API_KEY, MAIL_FROM und PUBLIC_BASE_URL prüfen.', 503);
+  };
+  const sendVerification = async user => {
+    store.rateLimit(`verification-email:${hash(user.email)}`, 5, 3600000);
+    const code = token(); store.emailToken(user.id, code);
+    try { await mailer.send(user.email, code, 'verify'); }
+    catch (error) { store.revokeEmailToken(code); throw error; }
+  };
+  const verificationResponse = res => res.status(202).json({ status: 'verification_required', emailStatus: 'accepted',
+    message: 'Bestätigungslink an den E-Mail-Anbieter übergeben. Bitte Posteingang und Spam prüfen. Der Link gilt eine Stunde; die Zustellung ist noch nicht bestätigt.' });
   app.get('/health', (req, res) => res.json({ status: 'ok', analysisVersion: 8, accountStorage: 'sqlite-v1',
     analysisConfigured: Boolean(dependencies.analysisConfigured), billingConfigured: client.isConfigured() && Boolean(env.STRIPE_WEBHOOK_SECRET),
     emailConfigured: mailer.isConfigured(), marketDataCommercial: env.COMMERCIAL_MARKET_DATA_APPROVED === 'true',
@@ -91,12 +102,25 @@ function installAccounts(app, dependencies = {}, env = process.env) {
     billingAvailable: client.isConfigured() && Boolean(env.STRIPE_WEBHOOK_SECRET), analysisAvailable: Boolean(dependencies.analysisConfigured),
     youtubeSyncAvailable: Boolean(env.YOUTUBE_OAUTH_CLIENT_ID && env.YOUTUBE_OAUTH_CLIENT_SECRET && env.APP_ENCRYPTION_KEY), marketDataAvailable: env.COMMERCIAL_MARKET_DATA_APPROVED === 'true' }));
   app.post('/auth/register', limited('register', 5, 3600000), asyncRoute(async (req, res) => {
-    if (!mailer.isConfigured()) throw new AppError('EMAIL_NOT_CONFIGURED', 'Registrierung wartet auf bestätigten E-Mail-Versand.', 503);
-    const email = emailAddress(req.body.email), password = await passwordHash(req.body.password);
+    const { email, password } = registrationInput(req.body);
+    requireEmail();
+    const encoded = await passwordHash(password);
     let user = store.byEmail(email);
-    if (!user) user = store.createUser(email, password);
-    if (!user.verified_at) { const code = token(); store.emailToken(user.id, code); await mailer.send(email, code, 'verify'); }
-    res.status(202).json({ status: 'verification_required', message: 'Falls erforderlich, wurde ein Bestätigungslink gesendet.' });
+    if (user && !await passwordMatches(password, user.password_hash)) {
+      throw new AppError('ACCOUNT_ACCESS_REQUIRED', 'Registrierung nicht fortgesetzt. Falls bereits ein Konto besteht, mit dem bisherigen Passwort anmelden oder „Passwort vergessen?“ verwenden.', 409);
+    }
+    if (!user) user = store.createUser(email, encoded);
+    if (user.verified_at) return res.json({ status: 'sign_in_required', message: 'Dein Konto ist bereits bestätigt. Bitte anmelden.' });
+    await sendVerification(user);
+    verificationResponse(res);
+  }));
+  app.post('/auth/resend-verification', limited('resend-verification', 5, 3600000), asyncRoute(async (req, res) => {
+    const user = store.byEmail(emailAddress(req.body.email));
+    if (!await passwordMatches(req.body.password, user?.password_hash) || !user) {
+      throw new AppError('LOGIN_FAILED', 'E-Mail oder Passwort ist nicht korrekt.', 401);
+    }
+    if (user.verified_at) return res.json({ status: 'sign_in_required', message: 'Dein Konto ist bereits bestätigt. Bitte anmelden.' });
+    requireEmail(); await sendVerification(user); verificationResponse(res);
   }));
   app.post('/auth/verify', limited('verify', 15), asyncRoute(async (req, res) => {
     const user = store.consumeEmailToken(String(req.body.token || ''), 'verify'); sessionResponse(res, user);
@@ -104,13 +128,20 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   app.post('/auth/login', limited('login', 10), asyncRoute(async (req, res) => {
     const user = store.byEmail(emailAddress(req.body.email));
     const matches = await passwordMatches(req.body.password, user?.password_hash);
-    if (!user || !matches || !user.verified_at) throw new AppError('LOGIN_FAILED', 'Anmeldung fehlgeschlagen. E-Mail-Bestätigung prüfen.', 401);
+    if (!user || !matches) throw new AppError('LOGIN_FAILED', 'E-Mail oder Passwort ist nicht korrekt.', 401);
+    if (!user.verified_at) throw new AppError('EMAIL_NOT_VERIFIED', 'Bitte zuerst die E-Mail bestätigen. Unter „Konto & Pro“ kannst du einen neuen Bestätigungslink anfordern.', 403);
     sessionResponse(res, user);
   }));
   app.post('/auth/password-reset', limited('reset', 5, 3600000), asyncRoute(async (req, res) => {
     const user = store.byEmail(emailAddress(req.body.email));
-    if (user?.verified_at) { const code = token(); store.emailToken(user.id, code, 'reset'); await mailer.send(user.email, code, 'reset'); }
-    res.status(202).json({ status: 'email_requested' });
+    requireEmail();
+    if (user) {
+      store.rateLimit(`reset-email:${hash(user.email)}`, 5, 3600000);
+      const code = token(); store.emailToken(user.id, code, 'reset');
+      try { await mailer.send(user.email, code, 'reset'); }
+      catch (error) { store.revokeEmailToken(code); throw error; }
+    }
+    res.status(202).json({ status: 'email_requested', message: 'Falls ein Konto existiert, wurde der Link an den E-Mail-Anbieter übergeben. Bitte Posteingang und Spam prüfen; die Zustellung ist nicht bestätigt.' });
   }));
   app.post('/auth/password-reset/confirm', limited('reset-confirm', 10), asyncRoute(async (req, res) => {
     store.consumeEmailToken(String(req.body.token || ''), 'reset', await passwordHash(req.body.password)); res.json({ status: 'password_updated' });

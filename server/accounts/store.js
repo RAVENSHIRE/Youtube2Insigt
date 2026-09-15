@@ -67,6 +67,7 @@ class AccountStore {
   emailToken(userId, token, kind = 'verify') {
     this.db.prepare('INSERT INTO email_tokens VALUES (?,?,?,?)').run(hash(token), userId, kind, this.now() + 3600000);
   }
+  revokeEmailToken(token) { this.db.prepare('DELETE FROM email_tokens WHERE hash=?').run(hash(token)); }
   consumeEmailToken(token, kind, passwordHash = null) {
     return this.transaction(() => {
       const row = this.db.prepare('SELECT * FROM email_tokens WHERE hash=? AND kind=? AND expires_at>?').get(hash(token), kind, this.now());
@@ -76,6 +77,7 @@ class AccountStore {
         this.db.prepare('UPDATE users SET verified_at=COALESCE(verified_at,?) WHERE id=?').run(this.now(), row.user_id);
         this.db.prepare('INSERT OR IGNORE INTO credit_grants VALUES (?,?,?,?,?,?)').run(`free:${row.user_id}`, row.user_id, 'free', 1, this.now(), 8640000000000000);
       } else {
+        this.db.prepare('DELETE FROM email_tokens WHERE user_id=?').run(row.user_id);
         this.db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(passwordHash, row.user_id);
         this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(row.user_id);
       }

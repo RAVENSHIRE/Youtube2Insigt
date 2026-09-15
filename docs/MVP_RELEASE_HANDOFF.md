@@ -1,5 +1,9 @@
 # MVP implementation handoff — 7 September 2026
 
+Authentication follow-up, 15 September: see
+[current auth fixes, verification and deployment gates](AUTH_PRODUCTION_READINESS.md).
+This dated handoff remains the original implementation snapshot.
+
 ## Outcome
 
 **Code candidate delivered; NOT a fully verified or deployable paid release yet.**
