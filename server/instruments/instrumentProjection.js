@@ -1,4 +1,6 @@
 const { resolveInstrumentIdentity } = require("./instrumentResolver");
+const { tradingViewLink, identityConflict } = require("./marketIdentity");
+const { commodityTradingView } = require("./commodityTradingView");
 
 function cleanString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -22,9 +24,13 @@ function projectCompanyForRead(company, publishedAt = null) {
     reportedTicker;
   const managedInstrument = !["passthrough", "missing_symbol"]
     .includes(instrumentIdentity.resolution_status);
+  const commodityChart = commodityTradingView(company);
 
   return {
     ...company,
+    tradingview_url: tradingViewLink(company),
+    ...(commodityChart ? { tradingview_label: commodityChart.label } : {}),
+    identity_conflict: identityConflict(company),
     ticker,
     ...(reportedTicker && reportedTicker !== ticker
       ? { reported_symbol: reportedTicker }

@@ -1,0 +1,33 @@
+# Run from the repository root with --env-file .env -f deploy/compose.yaml.
+# One application replica only. Keep /data on persistent local disk, not NFS.
+services:
+  app:
+    build: ..
+    env_file: ../.env
+    environment:
+      APP_MODE: accounts
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      ACCOUNT_DB_PATH: /data/accounts.sqlite
+      PUBLIC_BASE_URL: https://${BETA_DOMAIN:?Set BETA_DOMAIN}
+    volumes:
+      - accounts:/data
+    restart: unless-stopped
+  proxy:
+    image: caddy:2
+    environment:
+      BETA_DOMAIN: ${BETA_DOMAIN:?Set BETA_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - tls:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+volumes:
+  accounts:
+  tls:
+  caddy_config:

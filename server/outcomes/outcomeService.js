@@ -23,7 +23,7 @@ function normalizeQuoteTimestamp(quote, fallbackTimestamp) {
   const rawTimestamp = quote?.current?.timestamp;
   const numericTimestamp = Number(rawTimestamp);
 
-  if (rawTimestamp !== null && rawTimestamp !== undefined && Number.isFinite(numericTimestamp)) {
+  if (rawTimestamp !== null && rawTimestamp !== undefined && rawTimestamp !== "" && Number.isFinite(numericTimestamp) && numericTimestamp > 0) {
     const milliseconds = numericTimestamp > 10_000_000_000
       ? numericTimestamp
       : numericTimestamp * 1000;
@@ -41,7 +41,8 @@ function normalizeQuoteTimestamp(quote, fallbackTimestamp) {
     }
   }
 
-  return { timestamp: new Date(fallbackTimestamp).toISOString(), source: "evaluation_time" };
+  return { timestamp: null, source: /^\d{4}-\d{2}-\d{2}$/u.test(datetime) ? "provider_date_only" : "unknown",
+    date: /^\d{4}-\d{2}-\d{2}$/u.test(datetime) ? datetime : null };
 }
 
 function calculateReturn(entryPrice, currentPrice) {
@@ -389,6 +390,9 @@ class OutcomeService {
       current_price: current,
       current_price_timestamp: currentTimestamp.timestamp,
       current_price_timestamp_source: currentTimestamp.source,
+      current_price_date: currentTimestamp.date || null,
+      quote_retrieved_at: evaluatedAt,
+      published_at: snapshot.published_at,
       currency: quote.currency || snapshot.market_snapshot.currency,
       exchange: quote.exchange || snapshot.market_snapshot.exchange,
       current_return_pct: currentReturn,
@@ -434,6 +438,8 @@ class OutcomeService {
       current_price: current,
       current_price_timestamp: timestamp.timestamp,
       current_price_timestamp_source: timestamp.source,
+      current_price_date: timestamp.date || null,
+      quote_retrieved_at: evaluatedAt,
       return_pct: calculateReturn(entry, current)
     };
     this.benchmarkCache.set(cacheKey, {

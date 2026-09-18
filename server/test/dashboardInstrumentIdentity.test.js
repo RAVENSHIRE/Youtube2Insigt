@@ -60,5 +60,12 @@ test("keeps unmanaged symbols unchanged in the read projection", () => {
   const stored = { company: "Nvidia", ticker: "NVDA" };
   const projected = projectCompanyForRead(stored, "2026-08-26T16:22:01.000Z");
 
-  assert.deepEqual(projected, stored);
+  assert.deepEqual(projected, { ...stored, tradingview_url: "https://www.tradingview.com/symbols/NASDAQ-NVDA/", identity_conflict: false });
+});
+
+test("projects verified TradingView links for the IPO example listings", () => {
+  assert.equal(projectCompanyForRead({ company: "Rocket Lab", ticker: "RKLB" }).tradingview_url,
+    "https://www.tradingview.com/symbols/NASDAQ-RKLB/");
+  assert.equal(projectCompanyForRead({ company: "AST SpaceMobile", ticker: "ASTS" }).tradingview_url,
+    "https://www.tradingview.com/symbols/NASDAQ-ASTS/");
 });

@@ -1,0 +1,4 @@
+# Supply a real domain via the Caddy environment. No deployment has been performed.
+{$BETA_DOMAIN} {
+    reverse_proxy app:3000
+}

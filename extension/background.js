@@ -10,7 +10,7 @@ const CHANNEL_VIDEO_COUNT_TIMEOUT = 12 * 1000;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request?.action === "openOrFocusVideo") {
-    openOrFocusVideo(request.videoUrl)
+    openOrFocusVideo(request.videoUrl, request.startSeconds)
       .then(result => sendResponse({ ok: true, ...result }))
       .catch(error => {
         console.warn("YouTube tab could not be opened or focused:", error);
@@ -42,18 +42,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-async function openOrFocusVideo(videoUrl) {
+async function openOrFocusVideo(videoUrl, startSeconds) {
   const targetUrl = new URL(videoUrl);
   const targetVideoId = targetUrl.searchParams.get("v");
 
   if (
     !["youtube.com", "www.youtube.com", "m.youtube.com"].includes(targetUrl.hostname) ||
     targetUrl.pathname !== "/watch" ||
-    !targetVideoId
+    !/^[A-Za-z0-9_-]{11}$/.test(targetVideoId) || targetUrl.protocol !== "https:"
   ) {
     throw new Error("Ungültige YouTube-Video-URL.");
   }
 
+  if (startSeconds !== undefined && (!Number.isFinite(startSeconds) || startSeconds < 0 || startSeconds > 86400)) {
+    throw new Error("Ungültige Video-Zeitmarke.");
+  }
   const tabs = await chrome.tabs.query({
     url: ["https://www.youtube.com/watch*"]
   });
@@ -72,10 +75,21 @@ async function openOrFocusVideo(videoUrl) {
       await chrome.windows.update(existing.windowId, { focused: true });
     }
 
+    if (startSeconds !== undefined) {
+      const result = await chrome.tabs.sendMessage(existing.id, {
+        action: "seekEvidence", videoId: targetVideoId, seconds: startSeconds
+      }).catch(() => null);
+      if (!result?.ok) {
+        targetUrl.hostname = "www.youtube.com";
+        targetUrl.searchParams.set("t", `${Math.floor(startSeconds)}s`);
+        await chrome.tabs.update(existing.id, { url: targetUrl.href });
+      }
+    }
     return { reused: true, tabId: existing.id };
   }
 
   targetUrl.hostname = "www.youtube.com";
+  if (startSeconds !== undefined) targetUrl.searchParams.set("t", `${Math.floor(startSeconds)}s`);
   const created = await chrome.tabs.create({ url: targetUrl.href, active: true });
   return { reused: false, tabId: created.id };
 }

@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3000";
+const API_URL = AppApi.base;
 const OUTCOME_CACHE_TTL_MS = 60_000;
 
 const COLORS = [
@@ -30,12 +30,17 @@ const refreshButton = document.getElementById("refreshButton");
 const creatorOverview = document.getElementById("creatorOverview");
 const creatorCount = document.getElementById("creatorCount");
 const creatorList = document.getElementById("creatorList");
+const libraryControls = document.getElementById("libraryControls");
+const librarySearch = document.getElementById("librarySearch");
+const librarySort = document.getElementById("librarySort");
+const researchLibrary = globalThis.ResearchLibrary;
 
 let currentVideoId = null;
 let currentMetadata = null;
 let lastDashboard = null;
 let refreshTimer = null;
 let isRefreshing = false;
+let refreshEpoch = 0;
 let refreshQueued = false;
 let visibleVideos = [];
 let visibleCompanyReports = [];
@@ -46,9 +51,12 @@ let activeCreatorId = null;
 let selectedCreatorId = null;
 let selectedSector = null;
 let selectedSubSector = null;
+let libraryCreatorId = null;
+let libraryState = defaultLibraryState();
 const outcomeCache = new Map();
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("analyzeCurrent").addEventListener("click", analyzeCurrentExplicitly);
   refreshButton.addEventListener("click", refreshPanel);
   companyDonut.addEventListener("click", handleCompanySelection);
   companyDonut.addEventListener("keydown", handleCompanyKeyboardSelection);
@@ -56,11 +64,36 @@ document.addEventListener("DOMContentLoaded", () => {
   videoList.addEventListener("click", handleVideoReportSelection);
   reportInspector.addEventListener("click", handleInspectorClick);
   creatorList.addEventListener("click", handleCreatorSelection);
+  libraryControls.addEventListener("input", handleLibraryControls);
+  libraryControls.addEventListener("change", handleLibraryControls);
+  libraryControls.addEventListener("submit", event => event.preventDefault());
   refreshPanel();
+});
+
+document.addEventListener("accountStatus", event => showStatus(event.detail.message, event.detail.error));
+document.addEventListener("accountChanged", () => {
+  refreshEpoch++;
+  lastDashboard = null; creators = []; selectedCreatorId = null; selectedVideoId = null; selectedCompanyKey = null;
+  visibleVideos = []; visibleCompanyReports = []; outcomeCache.clear();
+  videoList.replaceChildren(); reportInspector.replaceChildren(); clearCreatorOverview();
+  document.getElementById("researchAnswer").textContent = ""; document.getElementById("researchCitations").replaceChildren();
+  renderEmpty("Bibliothek wird geladen", ""); refreshPanel();
 });
 
 chrome.tabs.onActivated.addListener(() => {
   scheduleRefresh();
+});
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.action !== "evidencePlayback" || !sender.tab || !Number.isFinite(message.seconds)) return;
+  for (const item of reportInspector.querySelectorAll("[data-evidence-start]")) {
+    const report = item.closest("[data-outcome-video]");
+    const active = report?.dataset.outcomeVideo === message.videoId &&
+      message.seconds >= Number(item.dataset.evidenceStart) && message.seconds < Number(item.dataset.evidenceEnd);
+    item.classList.toggle("is-playing", active);
+    if (active) item.setAttribute("aria-current", "true");
+    else item.removeAttribute("aria-current");
+  }
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -81,10 +114,20 @@ async function refreshPanel() {
   }
 
   isRefreshing = true;
+  const epoch = refreshEpoch;
   setLoading(true);
+  document.getElementById("analysisOffer").classList.add("hidden");
   hideStatus();
 
   try {
+    await AppApi.ready;
+    const account = await AppApi.currentAccount();
+    if (epoch !== refreshEpoch) return;
+    if (AppApi.config.accountRequired && !account && AppApi.scope !== "examples") {
+      clearCreatorOverview();
+      renderEmpty("Deine Research Library", "Melde dich an oder öffne die separate Beispielbibliothek. Eine persönliche Videoanalyse ist kostenlos.");
+      return;
+    }
     const context = await getActiveContext();
     currentVideoId = context.videoId;
     currentMetadata = context.metadata;
@@ -103,6 +146,7 @@ async function refreshPanel() {
     }
 
     creators = await getCreators();
+    if (epoch !== refreshEpoch) return;
     const activeCreator = currentMetadata
       ? await resolveCreator(currentMetadata)
       : null;
@@ -118,6 +162,7 @@ async function refreshPanel() {
 
     if (selectedCreatorId) {
       const dashboard = await getDashboard(selectedCreatorId);
+      if (epoch !== refreshEpoch) return;
       lastDashboard = { creatorId: selectedCreatorId, data: dashboard };
       renderDashboard(dashboard);
     } else {
@@ -133,6 +178,7 @@ async function refreshPanel() {
       showStatus(friendlyError(currentError), true);
     }
   } catch (error) {
+    if (epoch !== refreshEpoch) return;
     console.error("Side panel error:", error);
 
     if (lastDashboard?.data) {
@@ -197,18 +243,15 @@ async function ensureCurrentVideo(context) {
   metadata = await enrichChannelMetadata(metadata, research);
 
   if (research) {
-    research = await updateStoredMetadata(context.videoId, metadata)
+    research = AppApi.scope === "examples" ? research : await updateStoredMetadata(context.videoId, metadata)
       .catch(() => research);
   } else {
-    showStatus("Video wird analysiert – das kann einen Moment dauern …");
-
-    await analyzeVideo({
-      videoId: context.videoId,
-      ...metadata
-    });
-
-    research = await getStoredVideo(context.videoId);
+    const offer = document.getElementById("analysisOffer");
+    offer.classList.toggle("hidden", AppApi.scope === "examples");
+    document.getElementById("analysisOfferText").textContent = metadata.title || "Aktuelles YouTube-Video";
+    return { research: null, metadata };
   }
+  document.getElementById("analysisOffer").classList.add("hidden");
 
   if (!research?.video) {
     throw new Error("Research-Daten sind noch nicht verfügbar.");
@@ -218,6 +261,28 @@ async function ensureCurrentVideo(context) {
     research,
     metadata
   };
+}
+
+async function analyzeCurrentExplicitly() {
+  const button = document.getElementById("analyzeCurrent");
+  button.disabled = true;
+  try {
+    const context = await getActiveContext();
+    if (!isValidVideoId(context.videoId) || AppApi.scope === "examples") throw new Error("Öffne das gewünschte Video und wähle Meine Bibliothek.");
+    showStatus("Eine Analyse reserviert. Bei einem Fehler wird sie freigegeben.");
+    const epoch = refreshEpoch;
+    let result = await AppApi.json("/analyze", { videoId: context.videoId, ...(context.metadata || {}), confirmCredit: true });
+    const deadline = Date.now() + 250000;
+    while (result.state === "reserved" && Date.now() < deadline && epoch === refreshEpoch) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      result = await AppApi.json(`/analysis-jobs/${encodeURIComponent(result.jobId)}`);
+    }
+    if (epoch !== refreshEpoch) return;
+    if (result.state === "failed") throw new Error(`${result.error} (${result.code})`);
+    if (result.state === "reserved") showStatus("Auftrag läuft noch. Gespeicherte Reports erscheinen nach Abschluss.");
+    else { await refreshPanel(); showStatus("Report gespeichert. Erneutes Lesen kostet keine Analyse."); }
+  } catch (error) { showStatus(friendlyError(error), true); }
+  finally { button.disabled = false; document.dispatchEvent(new Event("accountRefresh")); }
 }
 
 async function enrichChannelMetadata(metadata, research) {
@@ -271,7 +336,7 @@ async function requestChannelTotalVideos(channelUrl) {
 }
 
 async function getCreators() {
-  const response = await fetch(`${API_URL}/creators`);
+  const response = await AppApi.fetch(`${API_URL}/creators`);
   const data = await parseResponse(response);
 
   if (!response.ok) {
@@ -301,7 +366,7 @@ async function resolveCreator(metadata) {
     return null;
   }
 
-  const response = await fetch(`${API_URL}/creators/resolve?${params}`);
+  const response = await AppApi.fetch(`${API_URL}/creators/resolve?${params}`);
   if (response.status === 404) {
     return null;
   }
@@ -315,7 +380,7 @@ async function resolveCreator(metadata) {
 }
 
 async function getDashboard(creatorId) {
-  const response = await fetch(
+  const response = await AppApi.fetch(
     `${API_URL}/creators/${encodeURIComponent(creatorId)}/dashboard`
   );
   const data = await parseResponse(response);
@@ -357,7 +422,7 @@ function normalizeCreator(creator) {
 }
 
 async function getStoredVideo(videoId) {
-  const response = await fetch(
+  const response = await AppApi.fetch(
     `${API_URL}/videos/${encodeURIComponent(videoId)}`
   );
 
@@ -375,7 +440,7 @@ async function getStoredVideo(videoId) {
 }
 
 async function updateStoredMetadata(videoId, metadata) {
-  const response = await fetch(
+  const response = await AppApi.fetch(
     `${API_URL}/videos/${encodeURIComponent(videoId)}/metadata`,
     {
       method: "POST",
@@ -434,7 +499,7 @@ async function getYouTubeMetadata(tab) {
 }
 
 async function analyzeVideo(payload) {
-  const response = await fetch(`${API_URL}/analyze`, {
+  const response = await AppApi.fetch(`${API_URL}/analyze`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -488,6 +553,12 @@ function renderCreatorOverview(items) {
     image.addEventListener("error", () => image.remove());
   });
   creatorOverview.classList.remove("hidden");
+}
+
+function clearCreatorOverview() {
+  creatorCount.textContent = "";
+  creatorList.replaceChildren();
+  creatorOverview.classList.add("hidden");
 }
 
 async function handleCreatorSelection(event) {
@@ -560,7 +631,8 @@ function renderDashboard(data) {
 
   renderChannel(channel, data);
   renderCompanyAllocation(visibleCompanyReports);
-  renderVideos(visibleVideos);
+  configureLibraryControls(visibleVideos, channel.creatorId);
+  renderResearchLibrary();
 
   if (selectedVideoId && visibleVideos.some(video => video.id === selectedVideoId)) {
     renderVideoInspector(selectedVideoId);
@@ -570,9 +642,63 @@ function renderDashboard(data) {
     closeReportInspector();
   }
 
-  videoCount.textContent = `${visibleVideos.length} ${visibleVideos.length === 1 ? "Video" : "Videos"}`;
   emptyState.classList.add("hidden");
   dashboardElement.classList.remove("hidden");
+}
+
+function defaultLibraryState() {
+  return {
+    query: "",
+    sort: "analyzed-desc"
+  };
+}
+
+function configureLibraryControls(videos, creatorId) {
+  if (!researchLibrary) {
+    throw new Error("Research-Library-Modul konnte nicht geladen werden.");
+  }
+
+  if (libraryCreatorId !== creatorId) {
+    libraryCreatorId = creatorId;
+    libraryState = defaultLibraryState();
+  }
+
+  syncLibraryControls();
+}
+
+function syncLibraryControls() {
+  librarySearch.value = libraryState.query;
+  librarySort.value = libraryState.sort;
+}
+
+function handleLibraryControls(event) {
+  if (event.type === "input" && event.target !== librarySearch) {
+    return;
+  }
+
+  libraryState = {
+    query: librarySearch.value.trim(),
+    sort: librarySort.value
+  };
+  renderResearchLibrary();
+}
+
+function renderResearchLibrary() {
+  const filteredVideos = researchLibrary.filterResearchVideos(
+    visibleVideos,
+    libraryState.query
+  );
+  const sortedVideos = researchLibrary.sortResearchVideos(
+    filteredVideos,
+    libraryState.sort
+  );
+  const filteredCount = sortedVideos.length;
+  const totalCount = visibleVideos.length;
+
+  renderVideos(sortedVideos);
+  videoCount.textContent = filteredCount === totalCount
+    ? `${totalCount} ${totalCount === 1 ? "Video" : "Videos"}`
+    : `${filteredCount}/${totalCount} Videos`;
 }
 
 function renderChannel(channel, data) {
@@ -657,6 +783,9 @@ function buildCompanyReports(videos) {
           key,
           company,
           ticker: report.ticker || null,
+          tradingViewUrl: report.tradingview_url || null,
+          tradingview_label: report.tradingview_label || null,
+          identity_conflict: Boolean(report.identity_conflict),
           assetType: report.asset_type || "other",
           sector: report.sector || "Other",
           subSector: report.sub_sector || report.subSector || "Unclassified Assets",
@@ -814,7 +943,40 @@ function renderCompanyAllocation(companies) {
   `;
 }
 
+function panelTradingViewTarget(company) {
+  if (company.identity_conflict) return null;
+  const resolved = typeof company.tradingview_url === "string" &&
+    /^https:\/\/www\.tradingview\.com\/symbols\/[A-Z0-9.-]+-[A-Z0-9.%_-]+\/$/u.test(company.tradingview_url)
+    ? company.tradingview_url : null;
+  const commodity = String(company.asset_type || company.assetType || "").trim().toLowerCase() === "commodity";
+  const symbol = !commodity && /^[A-Z0-9][A-Z0-9.:-]{0,24}$/u.test(company.ticker || "") ? company.ticker : null;
+  if (!resolved && !symbol) return null;
+  return {
+    href: resolved || `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`,
+    title: resolved ? company.tradingview_label || `${company.company || company.ticker} auf TradingView öffnen`
+      : "Symbol bei TradingView öffnen; Börsenplatz nicht bestätigt. Bitte Zuordnung prüfen."
+  };
+}
+
+function renderPanelTicker(company, className = "ticker-badge ticker-link") {
+  const label = company.ticker || company.company || "Unternehmen";
+  const target = panelTradingViewTarget(company);
+  return target
+    ? `<a class="${escapeHtml(className)}" href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer" data-tradingview title="${escapeHtml(target.title)}" aria-label="${escapeHtml(target.title)}"><span>${escapeHtml(label)} ↗</span></a>`
+    : `<span class="${escapeHtml(className)}" title="Instrument-Zuordnung offen"><span>${escapeHtml(label)}</span></span>`;
+}
+
 function renderVideos(videos) {
+  if (!videos.length) {
+    videoList.innerHTML = `
+      <div class="library-empty">
+        <strong>Keine passenden Reports</strong>
+        <span>Ändere die Suche oder setze die Filter zurück.</span>
+      </div>
+    `;
+    return;
+  }
+
   videoList.innerHTML = videos.map((video, index) => {
     const companies = Array.isArray(video.companies) ? video.companies : [];
     const chart = buildDonut(companies, () => 1);
@@ -824,15 +986,21 @@ function renderVideos(videos) {
     const creator = video.creator || "Unbekannter Kanal";
     const date = formatDate(video.publishedAt || video.analyzedAt);
     const isCurrent = video.id === currentVideoId;
+    const reportNumber = Number(video.analysisSequence) || index + 1;
+    const averagePerformance = researchLibrary.performanceValue(video);
 
     return `
       <article class="video-item ${isCurrent ? "is-current" : ""}" data-video-id="${escapeHtml(video.id)}">
         <div class="video-top">
           <div class="video-copy">
             <div class="video-meta">
-              <span>${isCurrent ? "Aktuelles Video" : `Report ${String(index + 1).padStart(2, "0")}`}</span>
+              <span>Report ${String(reportNumber).padStart(2, "0")}</span>
               <i class="meta-divider" aria-hidden="true"></i>
               <span>${escapeHtml(date)}</span>
+              ${averagePerformance === null
+                ? ""
+                : `<span class="video-performance-label ${averagePerformance >= 0 ? "is-positive" : "is-negative"}">${averagePerformance >= 0 ? "+" : ""}${escapeHtml(formatNumber(averagePerformance))} %</span>`}
+              ${isCurrent ? '<span class="current-video-label">Aktuelles Video</span>' : ""}
             </div>
             <h2 class="video-title">
               <a href="${escapeHtml(videoUrl)}" data-video-report="${escapeHtml(video.id)}" data-open-video>${escapeHtml(title)}</a>
@@ -865,18 +1033,7 @@ function renderVideos(videos) {
                 const sentiment = ["bull", "neutral", "bear"].includes(company.sentiment)
                   ? company.sentiment
                   : "neutral";
-                const label = company.ticker || company.company || "Unternehmen";
-
-                return `
-                  <button
-                    type="button"
-                    class="company-chip sentiment-${sentiment}"
-                    data-company-key="${escapeHtml(companyKey(company))}"
-                    title="${escapeHtml(company.thesis || company.company || "")}"
-                  >
-                    <span>${escapeHtml(label)}</span>
-                  </button>
-                `;
+                return renderPanelTicker(company, `company-chip sentiment-${sentiment}`);
               }).join("")
             : '<span class="company-chip"><span>Keine Unternehmen erkannt</span></span>'}
         </div>
@@ -953,6 +1110,9 @@ function handleCompanyKeyboardSelection(event) {
 }
 
 function handleVideoReportSelection(event) {
+  // Let the anchor navigate normally; never turn a ticker click into a report
+  // selection or a second YouTube tab.
+  if (event.target.closest("[data-tradingview]")) return;
   if (retryOutcome(event)) {
     return;
   }
@@ -993,6 +1153,19 @@ function handleVideoReportSelection(event) {
 }
 
 function handleInspectorClick(event) {
+  if (event.target.closest("[data-tradingview]")) {
+    event.stopPropagation();
+    return;
+  }
+
+  const evidence = event.target.closest("[data-seek-evidence]");
+  if (evidence) {
+    event.preventDefault();
+    const id = evidence.closest("[data-outcome-video]")?.dataset.outcomeVideo;
+    if (isValidVideoId(id)) openOrFocusVideo(`https://www.youtube.com/watch?v=${id}`, Number(evidence.dataset.seekEvidence))
+      .catch(error => showStatus(friendlyError(error), true));
+    return;
+  }
   if (retryOutcome(event)) {
     return;
   }
@@ -1042,10 +1215,11 @@ function retryOutcome(event) {
   return true;
 }
 
-async function openOrFocusVideo(videoUrl) {
+async function openOrFocusVideo(videoUrl, startSeconds) {
   const response = await chrome.runtime.sendMessage({
     action: "openOrFocusVideo",
-    videoUrl
+    videoUrl,
+    ...(startSeconds !== undefined ? { startSeconds } : {})
   });
 
   if (!response?.ok) {
@@ -1084,7 +1258,7 @@ function renderCompanyInspector(key) {
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Unternehmenshistorie</div>
-        <h2>${escapeHtml(company.company)}${company.ticker ? ` <span>${escapeHtml(company.ticker)}</span>` : ""}</h2>
+        <h2>${escapeHtml(company.company)}${company.ticker || company.tradingViewUrl ? ` ${renderPanelTicker({ ...company, tradingview_url: company.tradingViewUrl })}` : ""}</h2>
       </div>
       ${renderInspectorCloseButton()}
     </div>
@@ -1137,8 +1311,13 @@ function renderVideoInspector(videoId) {
 
     <div class="report-video-meta">
       <span>${escapeHtml(video.creator || "Unbekannter Kanal")}</span>
-      <span>${escapeHtml(formatDate(video.publishedAt || video.analyzedAt))}</span>
+      <span class="report-publication">Veröffentlicht: ${video.publishedAt ? escapeHtml(formatDate(video.publishedAt)) : "nicht bekannt"}</span>
       <a href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
+    </div>
+
+    <div class="report-export">
+      <button type="button" data-export-watchlist="${escapeHtml(video.id)}">Watchlist-CSV herunterladen ↓</button>
+      <p data-export-notice role="status">Nur eindeutig zugeordnete US-Symbole. Keine Preise oder Bestände; übrige Assets werden ausgelassen.</p>
     </div>
 
     ${video.summary
@@ -1184,7 +1363,7 @@ function renderCompanyReport(report, index, videoId) {
       <summary>
         <span class="report-entry-identity">
           <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
-          ${report.ticker ? `<span class="ticker-badge">${escapeHtml(report.ticker)}</span>` : ""}
+          ${report.ticker || report.tradingview_url ? renderPanelTicker(report) : ""}
           ${renderCallTypeBadge(report.call_type)}
           ${renderSentimentBadge(report.sentiment)}
         </span>
@@ -1195,6 +1374,9 @@ function renderCompanyReport(report, index, videoId) {
 }
 
 function renderOutcomePlaceholder(videoId, companyIndex) {
+  if (AppApi.scope === "examples" || (AppApi.config?.accountRequired && !AppApi.config.marketDataAvailable)) {
+    return '<section class="outcome-card"><small>Marktdaten sind in dieser Beta bis zur kommerziellen Freigabe deaktiviert.</small></section>';
+  }
   return `<section class="outcome-card is-loading" data-outcome-card data-video-id="${escapeHtml(videoId)}" data-company-index="${companyIndex}">Marktdaten werden geladen …</section>`;
 }
 
@@ -1213,7 +1395,7 @@ async function hydrateOpenOutcomeCards() {
         : null;
       if (!outcome) {
         outcomeCache.delete(key);
-        const response = await fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
+        const response = await AppApi.fetch(`${API_URL}/videos/${encodeURIComponent(card.dataset.videoId)}/companies/${card.dataset.companyIndex}/outcome`);
         outcome = await parseResponse(response);
         if (!response.ok) {
           const error = new Error(outcome.error || "Marktdaten nicht verfügbar.");
@@ -1312,10 +1494,15 @@ function renderOutcomeCard(card, outcome) {
     isLifecyclePending && outcome.current_price == null
       ? outcome.current_symbol || "Symbol offen"
       : formatAmount(outcome.current_price, currency),
-    outcome.current_price_timestamp
+    outcome.current_price_timestamp_source === "provider_quote" ? outcome.current_price_timestamp : null
   );
   appendOutcomePrice(prices, "Rendite", returnValue);
   card.append(prices);
+  if (outcome.current_price_timestamp_source !== "provider_quote") {
+    appendTextElement(card, "small", outcome.current_price_date ? `Kursdatum ${outcome.current_price_date} · genaue Kurszeit unbekannt` : "Genaue Kurszeit vom Anbieter nicht verfügbar.");
+  }
+  if (outcome.price_freshness === "stale_or_delayed") appendTextElement(card, "small", "Kurs veraltet oder verzögert.");
+  if (outcome.quote_retrieved_at) appendTextElement(card, "small", `Abgerufen: ${formatDateTime(outcome.quote_retrieved_at)}`);
 
   if (advancedMetrics.length || !isLifecyclePending) {
     const metrics = document.createElement("div");
@@ -1332,7 +1519,7 @@ function renderOutcomeCard(card, outcome) {
   if (outcome.status === "partial") {
     appendOutcomeWarning(
       card,
-      "Teilresultat: Live-Preis vorhanden, einzelne Historien-/Benchmarkdaten temporär limitiert.",
+      "Teilresultat: letzter verfügbarer Kurs, einzelne Historien-/Benchmarkdaten temporär limitiert.",
       "Nach 60 Sekunden erneut versuchen"
     );
   } else if (outcome.status === "stale") {
@@ -1431,7 +1618,7 @@ function renderCompanyReportContent(report) {
     ? report.levels.filter(hasUsableStructuredValue)
     : [];
   const evidence = Array.isArray(report.evidence)
-    ? report.evidence.filter(hasMeaningfulText)
+    ? report.evidence.filter(item => typeof item === "object" || hasMeaningfulText(item))
     : [];
   const thesis = hasMeaningfulText(report.thesis) ? report.thesis.trim() : null;
   const facts = [
@@ -1449,6 +1636,9 @@ function renderCompanyReportContent(report) {
   ].filter(Boolean);
 
   return `
+    ${report.tradingview_url && /^https:\/\/www\.tradingview\.com\/symbols\/[A-Z0-9.-]+-[A-Z0-9.%_-]+\/$/u.test(report.tradingview_url)
+      ? `<a class="report-video-link" href="${escapeHtml(report.tradingview_url)}" target="_blank" rel="noopener noreferrer">TradingView ↗</a>` : ""}
+    ${report.identity_conflict ? '<p class="report-missing">Unternehmensname und Symbol widersprechen sich. Marktdaten bleiben gesperrt.</p>' : ""}
     <div class="report-call-row">
       <span>Call-Typ</span>
       <span class="report-call-value">
@@ -1478,8 +1668,11 @@ function renderCompanyReportContent(report) {
         `).join("")}</ul></section>`
       : ""}
     ${evidence.length
-      ? `<section class="report-section"><h4>Belege aus dem Video</h4><ul>${evidence.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`
-      : ""}
+      ? `<section class="report-section"><h4>Belege aus dem Video</h4><ul>${EvidenceUI.render(evidence)}</ul></section>`
+      : '<p class="report-missing">Keine prüfbaren Belege verfügbar.</p>'}
+    <section class="report-section"><h4>Risiken</h4>${report.risks?.length
+      ? `<ul>${report.risks.map(risk => `<li>${escapeHtml(risk)}</li>`).join("")}</ul>`
+      : '<p class="report-missing">Keine Risiken aus den erfassten Belegen extrahiert. Das bedeutet nicht, dass keine Risiken bestehen.</p>'}</section>
   `;
 }
 
