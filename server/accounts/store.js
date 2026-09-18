@@ -126,7 +126,9 @@ class AccountStore {
     return { ...parse(row), personal_sequence: row.sequence, saved_at: new Date(row.added_at).toISOString(), revision_id: row.report_id };
   }
   library(userId) {
-    return this.db.prepare('SELECT r.body,l.sequence,l.added_at,l.report_id FROM library l JOIN reports r ON r.id=l.report_id WHERE l.user_id=? ORDER BY l.sequence').all(userId)
+    const { hasVisibilityTable } = require('./localLibraryVisibility');
+    const visible = hasVisibilityTable(this.db) ? ' AND NOT EXISTS (SELECT 1 FROM local_hidden_library h WHERE h.user_id=l.user_id AND h.video_id=l.video_id)' : '';
+    return this.db.prepare(`SELECT r.body,l.sequence,l.added_at,l.report_id FROM library l JOIN reports r ON r.id=l.report_id WHERE l.user_id=?${visible} ORDER BY l.sequence`).all(userId)
       .map(row => ({ ...parse(row), personal_sequence: row.sequence, saved_at: new Date(row.added_at).toISOString(), revision_id: row.report_id }));
   }
   cachedReport(videoId, version) {

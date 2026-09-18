@@ -1,5 +1,7 @@
 # SignalTube Grand Picture
 
+> Aktiver Stand 16.09.2026: [Phase-1-Handoff](../PHASE_1_HANDOFF.md). SignalTube bleibt die Marke. Priorität: Kontoseite, Report-Gestaltung, Landingpage und Symbol-Export. Pro bleibt Coming soon; Zahlungsintegration und Deployment folgen nicht automatisch. Die Abschnitte unten dokumentieren ältere Ziele und sind keine aktuelle Freigabe.
+
 ## Produktvision, Roadmap und Kommerzialisierung bis Dezember 2026
 
 **Status:** Produktvision mit MVP-Abgrenzung, aktualisiert am 7. September 2026<br>

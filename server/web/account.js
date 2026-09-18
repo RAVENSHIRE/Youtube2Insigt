@@ -2,6 +2,58 @@ const byId = id => document.getElementById(id);
 const message = (text, error = false) => { byId('message').textContent = text; byId('message').classList.toggle('error', error); };
 const safe = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 let resetToken = null;
+let libraryEpoch = 0;
+let creators = [], selectedCreator = null, researchVideos = [], mixPath = [], companyVideos = null;
+function clearResearch() {
+  creators = []; selectedCreator = null; researchVideos = []; mixPath = []; companyVideos = null;
+  byId('creatorGrid').innerHTML = ''; byId('reportMix').innerHTML = ''; byId('channelOverview').innerHTML = '';
+  byId('personalLibrary').innerHTML = ''; byId('creatorResearch').hidden = true;
+}
+function renderLibrary() {
+  libraryEpoch++;
+  const scoped = companyVideos ? researchVideos.filter(v=>companyVideos.ids.includes(v.id)) : researchVideos;
+  const visible = ResearchLibrary.sortResearchVideos(ResearchLibrary.filterResearchVideos(scoped, byId('librarySearch').value), byId('librarySort').value);
+  byId('libraryCount').textContent = visible.length === researchVideos.length ? `${visible.length} ${visible.length === 1 ? 'Video' : 'Videos'}` : `${visible.length} / ${researchVideos.length} Videos`;
+  byId('personalLibrary').innerHTML = ResearchDashboard.videos(visible, SavedReportView);
+  byId('companySelection').innerHTML = companyVideos ? `<span>${safe(companyVideos.label)}</span><button type="button" data-clear-company>Alle Kanalvideos</button>` : '';
+}
+async function selectCreator(id) {
+  const creator = creators.find(c=>c.creatorId === id);
+  if (!creator) return;
+  const epoch = ++libraryEpoch;
+  selectedCreator = id; researchVideos = []; mixPath = []; companyVideos = null;
+  byId('creatorResearch').hidden = true; byId('personalLibrary').innerHTML = '';
+  byId('creatorGrid').innerHTML = ResearchDashboard.creators(creators,id);
+  byId('librarySearch').value = ''; byId('librarySort').value = 'analyzed-desc';
+  try {
+    const data = await request(`/creators/${encodeURIComponent(id)}/dashboard`);
+    if (epoch !== libraryEpoch) return;
+    researchVideos = data.videos || [];
+    byId('channelOverview').innerHTML = ResearchDashboard.channel(data.creator || creator,researchVideos);
+    byId('reportMix').innerHTML = ResearchDashboard.mix(researchVideos,mixPath);
+    byId('creatorResearch').hidden = false;
+    renderLibrary();
+  } catch(error) { if(epoch === libraryEpoch) message(error.message,true); }
+}
+byId('creatorGrid').addEventListener('click',event=>{
+  const button = event.target.closest('[data-creator]');
+  if(button) selectCreator(button.dataset.creator);
+});
+byId('librarySearch').addEventListener('input',renderLibrary);
+byId('librarySort').addEventListener('change',renderLibrary);
+byId('companySelection').addEventListener('click',event=>{if(event.target.closest('[data-clear-company]')){companyVideos=null;renderLibrary();}});
+byId('reportMix').addEventListener('click',event=>{
+  const back = event.target.closest('[data-mix-back]'), item = event.target.closest('[data-mix-index]');
+  if(back){event.preventDefault();mixPath=mixPath.slice(0,Number(back.dataset.mixBack));companyVideos=null;renderLibrary();}
+  else if(item){
+    event.preventDefault();
+    const group=ResearchDashboard.groups(researchVideos,mixPath)[Number(item.dataset.mixIndex)];
+    if(!group)return;
+    if(mixPath.length<2)mixPath.push(group.label);
+    else {companyVideos={label:group.label,ids:[...group.videoIds]};renderLibrary();}
+  } else return;
+  byId('reportMix').innerHTML = ResearchDashboard.mix(researchVideos,mixPath);
+});
 async function request(url, body) {
   const response = await fetch(url, { method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
     ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }) });
@@ -11,21 +63,61 @@ async function request(url, body) {
 }
 const run = callback => async event => { event?.preventDefault(); try { await callback(); } catch (error) { message(error.message, true); } };
 async function refresh() {
+  const epoch = ++libraryEpoch;
   let account;
   try { account = await request('/me'); } catch (error) {
+    if (epoch !== libraryEpoch) return;
     if (error.status !== 401) throw error;
-    byId('auth').hidden = false; byId('accountPanel').hidden = true; return;
+    byId('auth').hidden = false; byId('accountIntro').hidden = false; byId('accountPanel').hidden = true; clearResearch(); return;
   }
-  byId('auth').hidden = true; byId('accountPanel').hidden = false;
+  if (epoch !== libraryEpoch) return;
+  byId('auth').hidden = true; byId('accountIntro').hidden = true; byId('accountPanel').hidden = false;
   byId('identity').textContent = account.email;
   byId('plan').textContent = account.plan === 'pro' ? 'Pro' : 'Free';
   byId('credits').textContent = account.analyses_available;
   byId('subscription').textContent = account.subscription ? `Status: ${account.subscription.status} · Laufzeit bis ${new Date(account.subscription.period_end).toLocaleDateString('de-CH')}${account.subscription.cancel_at_period_end ? ' · Kündigung vorgemerkt' : ''}` : 'Kein laufendes Abo.';
-  byId('proDescription').textContent = `Pro: ${account.pro_monthly_analyses} Analysen pro bezahltem Monat. Preis und Abrechnung werden vor dem Kauf in Stripe Checkout bestätigt.`;
-  const data = await request('/dashboard');
-  byId('libraryCount').textContent = `· ${data.videos.length}`;
-  byId('personalLibrary').innerHTML = data.videos.length ? data.videos.map(video => `<article class="library-entry"><small>Report ${video.analysisSequence}</small><h3><a target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}">${safe(video.title)}</a></h3><p>${safe(video.summary)}</p></article>`).join('') : '<p>Deine persönliche Bibliothek startet leer. Nur bewusst gespeicherte Analysen erscheinen hier.</p>';
+  byId('proDescription').textContent = 'Pro · Coming soon. In dieser Beta ist kein Abschluss möglich. Deine gespeicherten Reports bleiben ohne erneuten Analyseverbrauch lesbar.';
+  const data = await request('/creators');
+  if (epoch !== libraryEpoch) return;
+  creators = data.creators || [];
+  byId('creatorCount').textContent = `${creators.length} ${creators.length === 1 ? 'Creator' : 'Creators'}`;
+  byId('creatorGrid').innerHTML = ResearchDashboard.creators(creators,selectedCreator);
+  const next = creators.find(c=>c.creatorId === selectedCreator) || (creators.length === 1 ? creators[0] : null);
+  byId('creatorResearch').hidden = !next;
+  if(next) await selectCreator(next.creatorId);
+  else { researchVideos=[];byId('personalLibrary').innerHTML=''; }
+
 }
+function setReportButtons(button, open) {
+  const entry = button.closest('.library-entry');
+  for(const control of entry.querySelectorAll?.('[data-report-video]') || [button]) {
+    control.setAttribute('aria-expanded', String(open));
+    if(control.dataset.reportLabel) control.textContent = open ? 'Report schließen' : 'Vollständigen Report öffnen';
+  }
+}
+byId('personalLibrary').addEventListener('click', async event => {
+  const button = event.target.closest('[data-report-video]');
+  if (!button || button.disabled) return;
+  event.preventDefault();
+  const panel = button.closest('.library-entry').querySelector('.saved-report');
+  if (!panel.hidden) { panel.hidden = true; setReportButtons(button, false); return; }
+  const epoch = libraryEpoch, videoId = button.dataset.reportVideo;
+  button.disabled = true;
+  try {
+    if (!/^[A-Za-z0-9_-]{11}$/u.test(videoId)) throw Error('Ungültige Video-ID.');
+    if (!panel.dataset.loaded) {
+      if(button.dataset.reportLabel) button.textContent = 'Report wird geladen …';
+      const report = await request(`/videos/${encodeURIComponent(videoId)}`);
+      if (epoch !== libraryEpoch || !button.isConnected) return;
+      if (report.video?.id !== videoId) throw Error('Gespeicherter Report passt nicht zum Video.');
+      panel.innerHTML = SavedReportView.render(report);
+      panel.dataset.loaded = 'true';
+    }
+    panel.hidden = false; setReportButtons(button, true);
+  } catch (error) {
+    if (epoch === libraryEpoch) { if(button.dataset.reportLabel)button.textContent = 'Vollständigen Report öffnen'; message(error.message, true); }
+  } finally { button.disabled = false; }
+});
 byId('authForm').addEventListener('submit', run(async () => { await request('/auth/login', { email: byId('email').value, password: byId('password').value }); byId('password').value = ''; message('Angemeldet.'); await refresh(); }));
 function registrationMode(enabled) {
   byId('authForm').hidden = enabled; byId('registerForm').hidden = !enabled;
@@ -58,14 +150,7 @@ byId('resendVerification').addEventListener('click', run(async () => {
 }));
 byId('reset').addEventListener('click', run(async () => { message((await request('/auth/password-reset', { email: byId('email').value })).message); }));
 byId('resetForm').addEventListener('submit', run(async () => { await request('/auth/password-reset/confirm', { token: resetToken, password: byId('newPassword').value }); resetToken = null; byId('newPassword').value = ''; byId('resetPanel').hidden = true; message('Passwort geändert. Bitte anmelden.'); await refresh(); }));
-byId('logout').addEventListener('click', run(async () => { await request('/auth/logout', {}); message('Abgemeldet.'); await refresh(); }));
-function redirectBilling(url) {
-  const target = new URL(url);
-  if (target.protocol !== 'https:' || !['checkout.stripe.com', 'billing.stripe.com'].includes(target.hostname)) throw Error('Unerwartete Zahlungsadresse.');
-  location.assign(target.href);
-}
-byId('checkout').addEventListener('click', run(async () => redirectBilling((await request('/billing/checkout', {})).url)));
-byId('portal').addEventListener('click', run(async () => redirectBilling((await request('/billing/portal', {})).url)));
+byId('logout').addEventListener('click', run(async () => { libraryEpoch++; clearResearch(); await request('/auth/logout', {}); message('Abgemeldet.'); await refresh(); }));
 byId('analysisForm').addEventListener('submit', run(async () => {
   const url = new URL(byId('videoUrl').value), videoId = url.searchParams.get('v');
   if (!['www.youtube.com', 'youtube.com'].includes(url.hostname) || !/^[\w-]{11}$/.test(videoId || '')) throw Error('Eine vollständige YouTube-Video-URL eingeben.');

@@ -11,6 +11,7 @@ function fixture(state = 'complete') {
     if (route === '/auth/login') return Response.json({ token: 'synthetic-session' });
     if (route === '/auth/logout') return Response.json({ ok: true });
     if (route === '/me') return Response.json({ plan: 'free', analyses_available: available });
+    if (route === '/dashboard') return Response.json({videos:[{id:'RN_C7a66OSA'},...(submitted && available === 0 ? [{id:'J3Y_JBATcWg'}] : [])]});
     if (route === '/analyze') {
       const first = !submitted; submitted = true;
       return Response.json(first ? { jobId: 'synthetic-job', state: 'reserved' } : { cached: true, state: 'complete', credits_consumed: 0 });
@@ -35,6 +36,7 @@ test('live probe requires explicit consumption and a local server before submitt
 test('probe verifies persistence, fresh source, one-credit consumption and free reread without printing credentials', async () => {
   const f = fixture(), result = await verifyFreeAnalysis({ ...input, fetchImpl: f.fetchImpl });
   assert.equal(result.status, 'success'); assert.equal(result.credit_consumed_once, true); assert.equal(result.reread_free, true);
+  assert.equal(result.library_before,1);assert.equal(result.library_after,2);assert.equal(result.previous_reports_preserved,true);assert.equal(result.new_video_in_library,true);
   assert.equal(result.report_saved, true); assert.equal(result.source_verified, true); assert.equal(result.fresh_source, true);
   assert.equal(JSON.stringify(result).includes(input.password), false);
   assert.equal(JSON.stringify(result).includes('synthetic-session'), false);
@@ -54,4 +56,13 @@ test('an old globally cached source cannot be reported as a fresh live-provider 
     const data = await response.json(); data.source.retrieved_at = '2020-01-01T00:00:00Z'; return Response.json(data);
   } });
   assert.equal(result.status, 'not_verified_cached_source'); assert.equal(result.fresh_source, false);
+});
+
+test('probe refuses success when a previous saved report disappears', async () => {
+  const f=fixture();let dashboards=0;
+  const result=await verifyFreeAnalysis({...input,fetchImpl:async(url,options)=>{
+    if(new URL(url).pathname==='/dashboard' && ++dashboards>1)return Response.json({videos:[{id:'J3Y_JBATcWg'}]});
+    return f.fetchImpl(url,options);
+  }});
+  assert.equal(result.status,'verification_failed');assert.equal(result.previous_reports_preserved,false);
 });

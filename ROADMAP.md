@@ -1,3 +1,46 @@
+## Nächste Abnahme: zweites Video im Free-Testkonto
+
+- [x] Lokaler Test-Credit-Helfer mit verifiziertem SQLite-Backup und Produktionssperre.
+- [x] Testprüfer kontrolliert frisches Video, Erhalt alter Reports, einmaligen Verbrauch und kostenlosen Wiederaufruf.
+- [x] Getrennte Originalsegmente als separate Belege (Extraction v3); sichere Diagnose unbekannter IDs.
+- [x] Optionaler lokaler Reset blendet alte Reports reversibel aus; Originale/Nummerierung bleiben erhalten.
+- [x] Neuer Video-Lauf vom Nutzer bestätigt: vollständiger Report, `analysis_completed`, Credit 0 (18.09.2026).
+- [x] Panel-Ticker auf direkte TradingView-Links umgestellt; 224 automatisierte Tests grün.
+- [x] Gold als COMMODITY erhält beim Lesen einen gekennzeichneten Gold/USD-Referenzchart, auch ohne Ticker; 229 Tests grün.
+- [ ] Gold-Link lokal in Chrome prüfen, danach Feature-Stand mit GitHub abgleichen und nach main mergen.
+- [ ] Danach separat Pro-Testcheckout mit serverseitigen Berechtigungen; Research-Ansicht ohne großen „Konto & Pro“-Reiter.
+
+Anleitung: [Free-Abnahme](docs/FREE_SECOND_VIDEO_ACCEPTANCE.md). Der Live-Erfolg ist Voraussetzung für den Merge. Kein Deployment und kein Live-Payment behauptet.
+
+## Account-Dashboard — 17. September 2026
+
+- [x] `/account/` mit Creator Overview, Kanalkennzahlen, Fortschritt, interaktivem Sektor → Sub-Sektor → Unternehmen Report-Mix.
+- [x] Research Library mit gemeinsamer Such-/Sortierlogik der Extension und stabiler Reportnummer.
+- [x] Titel/Mini-Chart öffnen Report; Ticker und vollständiger CSV-Report direkt auf der Videokarte.
+- [x] Watchlist-Werbeabschnitt aus Konto-/Landingseite entfernt. Pro bleibt Coming soon.
+- [ ] Visuelle lokale Chrome-Abnahme; Performance-Sortierung bleibt mangels freigegebener Marktdaten deaktiviert.
+
+Details: [Account-Dashboard-Handoff](docs/ACCOUNT_DASHBOARD_HANDOFF.md). Dieser Abschnitt ersetzt abweichende UI-Beschreibungen aus dem Phase-1-Handoff; Analyse, Login und Credits bleiben unverändert.
+
+# SignalTube — aktive Phase 1, 16. September 2026
+
+Maßgeblich: [PHASE_1_HANDOFF.md](PHASE_1_HANDOFF.md) und [Kostenmodell](docs/PHASE_1_COST_MODEL.md).
+
+- [x] Funktionierenden Stand nach Quellen-, Modell- und Extension-Origin-Fixes erhalten.
+- [x] Konto und Webbericht in der dunklen SignalTube-Gestaltung der Extension.
+- [x] Öffentliche Landingpage mit ehrlichem Beta-Umfang und funktionierenden Konto-Links.
+- [x] Pro als inaktive Coming-soon-Vorschau; kein neuer Zahlungsablauf.
+- [x] Veröffentlichungsdatum hervorheben, nicht durch Analysezeit ersetzen.
+- [x] Symbol-CSV pro persönlichem/Beispielreport; US-Zuordnung, Nutzertrennung, keine erfundenen Positionen.
+- [x] Kostenmodell mit geprüften Providerpreisen und getrennt gekennzeichneten Annahmen.
+- [ ] Visuelle lokale Chrome-Abnahme dieser Änderungen und echter Yahoo-Import.
+- [ ] Echte p50/p95-Analyse- und Speicherkosten erfassen.
+- [ ] Beispielbelege/Verbreitungsrechte und Betreiber-/Datenschutzangaben final prüfen.
+
+**Kein Stripe, Deployment oder neues Feature in dieser Phase.** Bestehende Stripe-Module bleiben unverändert und sind keine Freigabe für Zahlungen. Historische Release-Checklisten unten sind nachrangig gegenüber diesem Phase-1-Umfang. Nächste Phase erst nach Abnahme.
+
+---
+
 # MVP release roadmap — 7 September 2026
 
 Target: retail investors who consume finance videos, not a large trading terminal.

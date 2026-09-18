@@ -5,11 +5,11 @@ const express = require('express');
 const { AccountStore } = require('../accounts/store');
 const { passwordHash } = require('../accounts/auth');
 const { AnalysisJobs } = require('../accounts/analysisJobs');
-const { redact, logAnalysis, atStage } = require('../accounts/analysisDiagnostics');
+const { redact, logAnalysis } = require('../accounts/analysisDiagnostics');
 const { installAccounts } = require('../accounts/routes');
 const { createReportAnalyzer } = require('../services/verifiedAnalysisService');
 const { SourceService } = require('../evidence/sourceService');
-const { validateReport } = require('../evidence/sourceIntegrity');
+const { extractVerifiedReport } = require('../services/evidenceExtractionService');
 const { YouTubeMetadataService } = require('../services/youtubeMetadataService');
 
 const videoId = 'J3Y_JBATcWg'; // Actual URL identity; all provider responses below are explicit fixtures.
@@ -62,14 +62,13 @@ test('real account/job/source orchestration succeeds, consumes one free credit a
   } });
   const analyzer = createReportAnalyzer({ youtubeMetadataService: metadata,
     sourceService: new SourceService({ fetchImpl: captionFetch() }), analysisVersion: 8, model: 'fixture-only',
-    analyzeTranscript: async ({ source, onStage }) => {
-      const raw = await atStage('model_response', () => {
+    analyzeTranscript: async ({ source, onStage, signal }) => {
+      return extractVerifiedReport({ source, onStage, signal, evidenceMode: 'segments', prompt: 'Fixture source', generate: async () => {
         modelCalls++;
         if (fail) throw Object.assign(new Error('Synthetic provider outage'), { code: 'PROVIDER_UNAVAILABLE' });
         return { summary: text, companies: [{ company: 'Rocket Lab', ticker: 'RKLB',
-          evidence: [{ segment_ids: ['s1'], original_text: text }] }] };
-      }, onStage);
-      return atStage('evidence_validation', () => validateReport(raw, source), onStage);
+          evidence: [{ segment_ids: ['s1'] }] }] };
+      } });
     } });
   const app = express();
   const runtime = installAccounts(app, { store, analysisConfigured: true,
@@ -112,6 +111,9 @@ test('real account/job/source orchestration succeeds, consumes one free credit a
   assert.equal((await request('/me')).body.analyses_available, 0);
   const saved = await request(`/videos/${videoId}`); assert.equal(saved.status, 200);
   assert.equal(saved.body.source.language, 'en'); assert.equal(saved.body.companies[0].evidence[0].start_seconds, 1);
+  assert.equal(saved.body.evidence_extraction_version, 3);
+  assert.equal(saved.body.companies[0].evidence[0].original_text, text);
+  assert.equal(saved.body.companies[0].evidence[0].quote_origin, 'source_segments');
   assert.equal((await request('/analyze', { videoId, confirmCredit: true })).body.credits_consumed, 0);
   assert.equal((await request('/analyze', { videoId: 'TestVideo02', confirmCredit: true })).status, 402);
   assert.equal(modelCalls, 2); assert.ok(stages.includes('transcript')); assert.ok(stages.includes('evidence_validation'));

@@ -53,7 +53,7 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   if (production) app.set('trust proxy', Number(env.TRUST_PROXY_HOPS) || 1);
   app.use((req, res, next) => {
     res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://i.ytimg.com https://yt3.googleusercontent.com data:; connect-src 'self'; frame-ancestors 'none'",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://yt3.ggpht.com https://i.ytimg.com https://yt3.googleusercontent.com data:; connect-src 'self'; frame-ancestors 'none'",
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()' });
     if (production) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     const requestedOrigin = req.get('origin');
@@ -165,8 +165,23 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   app.get('/analysis-jobs/:id', auth, (req, res, next) => {
     store.recoverExpired(); const job = store.job(req.user.id, req.params.id);
     if (!job) return next(new AppError('JOB_NOT_FOUND', 'Auftrag nicht gefunden.', 404));
+    const modelUnavailable = ['MODEL_UNAVAILABLE', 'MODEL_RATE_LIMIT'].includes(job.error_code);
+    const transcriptTimedOut = job.error_code === 'TRANSCRIPT_TIMEOUT';
     res.json({ jobId: job.id, videoId: job.video_id, state: job.state, code: job.error_code,
-      credit_released: job.state === 'failed', error: job.state === 'failed' ? 'Analyse konnte nicht sicher abgeschlossen werden. Credit freigegeben.' : null });
+      credit_released: job.state === 'failed', error: job.state === 'failed' ? (modelUnavailable
+        ? 'Gemini ist vorübergehend überlastet oder limitiert. Bitte später erneut versuchen. Credit freigegeben.'
+        : transcriptTimedOut ? 'YouTube hat das Transkript nicht rechtzeitig geliefert. Bitte erneut versuchen. Credit freigegeben.'
+        : 'Analyse konnte nicht sicher abgeschlossen werden. Credit freigegeben.') : null });
+  });
+  app.get('/videos/:videoId/report.csv', auth, (req, res, next) => {
+    const report = store.ownReport(req.user.id, req.params.videoId);
+    if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in deiner Bibliothek.', 404));
+    try { require('../exports/reportCsv').sendReportCsv(res, projectResearchForRead(report)); } catch (error) { next(error); }
+  });
+  app.get('/videos/:videoId/watchlist.csv', auth, (req, res, next) => {
+    const report = store.ownReport(req.user.id, req.params.videoId);
+    if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in deiner Bibliothek.', 404));
+    try { require('../exports/watchlistCsv').sendWatchlist(res, report); } catch (error) { next(error); }
   });
   app.get('/videos/:videoId', auth, (req, res, next) => {
     const report = store.ownReport(req.user.id, req.params.videoId);
@@ -207,8 +222,9 @@ function installAccounts(app, dependencies = {}, env = process.env) {
   app.get('/dashboard', auth, asyncRoute(async (req, res) => res.json(await dashboardFor(req.user))));
   app.get('/companies', auth, asyncRoute(async (req, res) => res.json({ companies: (await dashboardFor(req.user)).companies })));
   dependencies.extend?.({ app, store, auth, limited, asyncRoute, env, publicUrl, dashboardFor });
+  app.get('/account/research-library.js', (req, res) => res.sendFile(path.join(__dirname, '../../extension/research-library.js')));
   app.use('/account/', express.static(path.join(__dirname, '../web'), { index: 'index.html' }));
-  app.get('/', (req, res) => res.redirect('/account/'));
+  app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../web/landing.html')));
   app.use((req, res) => res.status(404).json({ code: 'NOT_FOUND', error: 'Endpunkt nicht verfügbar.' }));
   app.use((error, req, res, next) => {
     const status = error instanceof AppError ? error.status : error.type === 'entity.too.large' ? 413 : 500;

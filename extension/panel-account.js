@@ -15,6 +15,7 @@
     AppApi.ready.then(refreshAccount).catch(error => status(error.message, true));
     element('panelLogin').addEventListener('submit', run(async () => {
       await AppApi.login(element('panelEmail').value, element('panelPassword').value);
+      element('libraryScope').value = 'personal'; element('exampleNotice').classList.add('hidden');
       element('panelPassword').value = ''; element('accountTools').open = false;
       await refreshAccount(); document.dispatchEvent(new Event('accountChanged'));
     }));

@@ -784,6 +784,8 @@ function buildCompanyReports(videos) {
           company,
           ticker: report.ticker || null,
           tradingViewUrl: report.tradingview_url || null,
+          tradingview_label: report.tradingview_label || null,
+          identity_conflict: Boolean(report.identity_conflict),
           assetType: report.asset_type || "other",
           sector: report.sector || "Other",
           subSector: report.sub_sector || report.subSector || "Unclassified Assets",
@@ -941,6 +943,29 @@ function renderCompanyAllocation(companies) {
   `;
 }
 
+function panelTradingViewTarget(company) {
+  if (company.identity_conflict) return null;
+  const resolved = typeof company.tradingview_url === "string" &&
+    /^https:\/\/www\.tradingview\.com\/symbols\/[A-Z0-9.-]+-[A-Z0-9.%_-]+\/$/u.test(company.tradingview_url)
+    ? company.tradingview_url : null;
+  const commodity = String(company.asset_type || company.assetType || "").trim().toLowerCase() === "commodity";
+  const symbol = !commodity && /^[A-Z0-9][A-Z0-9.:-]{0,24}$/u.test(company.ticker || "") ? company.ticker : null;
+  if (!resolved && !symbol) return null;
+  return {
+    href: resolved || `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`,
+    title: resolved ? company.tradingview_label || `${company.company || company.ticker} auf TradingView öffnen`
+      : "Symbol bei TradingView öffnen; Börsenplatz nicht bestätigt. Bitte Zuordnung prüfen."
+  };
+}
+
+function renderPanelTicker(company, className = "ticker-badge ticker-link") {
+  const label = company.ticker || company.company || "Unternehmen";
+  const target = panelTradingViewTarget(company);
+  return target
+    ? `<a class="${escapeHtml(className)}" href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer" data-tradingview title="${escapeHtml(target.title)}" aria-label="${escapeHtml(target.title)}"><span>${escapeHtml(label)} ↗</span></a>`
+    : `<span class="${escapeHtml(className)}" title="Instrument-Zuordnung offen"><span>${escapeHtml(label)}</span></span>`;
+}
+
 function renderVideos(videos) {
   if (!videos.length) {
     videoList.innerHTML = `
@@ -1008,18 +1033,7 @@ function renderVideos(videos) {
                 const sentiment = ["bull", "neutral", "bear"].includes(company.sentiment)
                   ? company.sentiment
                   : "neutral";
-                const label = company.ticker || company.company || "Unternehmen";
-
-                return `
-                  <button
-                    type="button"
-                    class="company-chip sentiment-${sentiment}"
-                    data-company-key="${escapeHtml(companyKey(company))}"
-                    title="${escapeHtml(company.thesis || company.company || "")}"
-                  >
-                    <span>${escapeHtml(label)}</span>
-                  </button>
-                `;
+                return renderPanelTicker(company, `company-chip sentiment-${sentiment}`);
               }).join("")
             : '<span class="company-chip"><span>Keine Unternehmen erkannt</span></span>'}
         </div>
@@ -1096,6 +1110,9 @@ function handleCompanyKeyboardSelection(event) {
 }
 
 function handleVideoReportSelection(event) {
+  // Let the anchor navigate normally; never turn a ticker click into a report
+  // selection or a second YouTube tab.
+  if (event.target.closest("[data-tradingview]")) return;
   if (retryOutcome(event)) {
     return;
   }
@@ -1241,9 +1258,7 @@ function renderCompanyInspector(key) {
     <div class="inspector-header">
       <div>
         <div class="eyebrow">Unternehmenshistorie</div>
-        <h2>${escapeHtml(company.company)}${company.ticker ? company.tradingViewUrl
-          ? ` <a href="${escapeHtml(company.tradingViewUrl)}" target="_blank" rel="noopener noreferrer" data-tradingview>${escapeHtml(company.ticker)} ↗</a>`
-          : ` <span>${escapeHtml(company.ticker)}</span>` : ""}</h2>
+        <h2>${escapeHtml(company.company)}${company.ticker || company.tradingViewUrl ? ` ${renderPanelTicker({ ...company, tradingview_url: company.tradingViewUrl })}` : ""}</h2>
       </div>
       ${renderInspectorCloseButton()}
     </div>
@@ -1296,8 +1311,13 @@ function renderVideoInspector(videoId) {
 
     <div class="report-video-meta">
       <span>${escapeHtml(video.creator || "Unbekannter Kanal")}</span>
-      <span>${escapeHtml(formatDate(video.publishedAt || video.analyzedAt))}</span>
+      <span class="report-publication">Veröffentlicht: ${video.publishedAt ? escapeHtml(formatDate(video.publishedAt)) : "nicht bekannt"}</span>
       <a href="${escapeHtml(videoUrl)}" data-open-video>Video öffnen ↗</a>
+    </div>
+
+    <div class="report-export">
+      <button type="button" data-export-watchlist="${escapeHtml(video.id)}">Watchlist-CSV herunterladen ↓</button>
+      <p data-export-notice role="status">Nur eindeutig zugeordnete US-Symbole. Keine Preise oder Bestände; übrige Assets werden ausgelassen.</p>
     </div>
 
     ${video.summary
@@ -1343,9 +1363,7 @@ function renderCompanyReport(report, index, videoId) {
       <summary>
         <span class="report-entry-identity">
           <span class="report-company-name">${escapeHtml(report.company || "Unternehmen")}</span>
-          ${report.ticker ? report.tradingview_url
-            ? `<a class="ticker-badge ticker-link" href="${escapeHtml(report.tradingview_url)}" target="_blank" rel="noopener noreferrer" data-tradingview aria-label="${escapeHtml(report.company || report.ticker)} auf TradingView öffnen">${escapeHtml(report.ticker)} ↗</a>`
-            : `<span class="ticker-badge">${escapeHtml(report.ticker)}</span>` : ""}
+          ${report.ticker || report.tradingview_url ? renderPanelTicker(report) : ""}
           ${renderCallTypeBadge(report.call_type)}
           ${renderSentimentBadge(report.sentiment)}
         </span>

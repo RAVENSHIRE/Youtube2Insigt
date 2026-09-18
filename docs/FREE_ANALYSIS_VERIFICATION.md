@@ -1,5 +1,157 @@
 # Free-user analysis: diagnosis and local verification
 
+## Current fix: evidence text is owned by the source, not the model
+
+The user's job `c8f3013d-49e2-40c7-9a98-afd464fe2b41` reached the second
+extraction response and still failed at company 1 / evidence 2. Prompt-only
+exact-copy retries did not resolve the mismatch. The rejected text itself is
+not logged, so its exact wording difference is unknown.
+
+The production Gemini schema now asks for **segment IDs only** in evidence.
+The model selects short, contiguous passages supporting each company. The
+server obtains their original text and times from the validated source; the
+model no longer transcribes a second copy that can introduce wording changes.
+The output still passes the original exact-match validator and includes
+`quote_origin: source_segments` and report `evidence_extraction_version: 2`.
+Only whitespace/NFC normalization already used by the source validator applies.
+This certifies quotation provenance, not semantic correctness of every thesis.
+
+Unknown, duplicate, reversed or non-contiguous IDs, excessive selections,
+wrong-language prose and missing evidence remain rejected. A model that still
+returns quote text, translations or timestamps in the new selection contract
+is rejected rather than having its invented quote silently replaced. One bounded
+selection repair is allowed under the same job deadline and credit reservation.
+Legacy quote validation remains available and unchanged in strictness. Existing
+reports, their source records, authentication, examples and TradingView UI are
+not migrated or overwritten.
+
+Verification: **197/197 automated tests passed**. The production schema and mode
+are exercised; the HTTP Free-user account flow uses the new extraction service,
+saves source-owned evidence, consumes exactly one credit and supports free reread.
+Provider responses are fixtures. Invalid selections are tested to release credit.
+No full live Gemini/account success is claimed; local API credentials are absent.
+
+Apply `source-owned-evidence.patch` after all three preceding recovery patches,
+run `npm test --prefix server` and restart with `gemini-3.5-flash`. Then submit
+`RN_C7a66OSA` as a new account analysis. A verified new report should contain
+`evidence_extraction_version: 2` and source-derived evidence markers.
+
+## Follow-up: caption request timeout
+
+Job `147389a0-ff9d-44c2-9232-caca8e6ac759` for `RN_C7a66OSA` failed in
+`transcript` with an underlying `TimeoutError`. This is a different failure
+from the previous evidence mismatch, and does not prove subtitles are absent.
+Previously the 15-second request timeout was wrapped as `TRANSCRIPT_UNAVAILABLE`
+with a misleading message about audio configuration/video length.
+
+The source service now permits 20 seconds per request and retries a timed-out
+caption acquisition once. Request and response-body timeouts are covered, and
+all language fallbacks/retries share a 60-second transcript budget. The job's
+existing cancellation and deadline remain authoritative. Persistent timeouts
+produce `TRANSCRIPT_TIMEOUT` with the original cause and an explicit account-page
+message. Timeout recovery does not invoke the audio fallback or change languages,
+quotation validation, account storage or credit accounting.
+
+Verification: **182/182 tests passed**, including header/body timeout recovery,
+bounded failure, cancellation, acquisition deadline, no retry for missing captions
+and one-credit success/failure accounting. Genuine public YouTube retrieval for
+`RN_C7a66OSA` succeeded here: **277 English segments**, duration **666 seconds**.
+This is a transcript-only live test, not a full Gemini/account analysis proof;
+the user's connection/provider availability can still differ.
+
+Apply `transcript-timeout-recovery.patch` on top of both preceding patches,
+run `npm test --prefix server`, restart with `gemini-3.5-flash`, reload the
+account page and submit a new job. No .env or database migration is needed.
+
+## Follow-up: exact evidence rejection with Gemini 3.5
+
+The user's live job `70b37697-5046-4684-8a8b-e51c56c848ba` for `RN_C7a66OSA`
+reached `evidence_validation` with Gemini 3.5 and failed `QUOTE_SOURCE_MISMATCH`.
+This proves the model responded but at least one proposed quote did not match
+its cited contiguous source segments. The old log does not contain the quote;
+whether the mismatch was paraphrasing, punctuation or incorrect IDs is unknown.
+
+The extraction prompt now explicitly prohibits rewriting spelling, numbers and
+punctuation. `evidenceExtractionService` retries extraction once for a quote or
+segment mismatch, with exact-copy guidance and the failed company/evidence
+position. It revalidates the entire result strictly. It neither accepts fuzzy
+matches nor silently deletes an asset nor substitutes arbitrary source text.
+Unsupported languages and model/provider errors do not trigger this repair.
+
+Both attempts share the job's abort signal, deadline and credit reservation.
+One extra extraction may incur provider usage, but not another app credit.
+Persistent mismatch still fails and releases the credit. Errors now include
+one-based company/evidence positions without printing customer transcript text.
+No existing stored reports are rewritten.
+
+Verification: all **174 tests passed**, including eight new exact-match,
+bounded repair, cancellation, original-source preservation and Free credit
+tests. These recovery tests use provider fixtures, not live Gemini responses.
+A successful full live analysis of `RN_C7a66OSA` remains to be verified locally.
+
+Apply `evidence-source-recovery.patch` after the earlier caption recovery patch,
+restart the server with the verified `gemini-3.5-flash` configuration and create
+a new analysis from the account page. Do not reapply the old caption patch.
+
+## Update: causes established from the user's uploaded log
+
+The following supersedes the earlier "cause unknown" investigation below:
+
+- Job `8da7dbc3-49dc-4060-bba1-cec93b65ba7d`, video `av1oUOHihtU`:
+  YouTube exposed only a German caption track, while metadata requested en-US.
+  Requiring that metadata language caused `TRANSCRIPT_UNAVAILABLE`. The corrected
+  source service falls back to the available native caption track when the
+  requested language is absent. It retains German text/timing and records the
+  metadata discrepancy in the hashed source provenance. Arabic/unsupported
+  languages, translated URLs and invalid timings remain rejected.
+- Job `d05c9dd2-3ab0-488f-b3db-f3f3aa7ecc06`, video `X24Ob9ek9rM`:
+  Gemini returned HTTP 503 / UNAVAILABLE with "high demand". The installed JS SDK
+  does not retry without explicit `retryOptions`. The model request now uses
+  three total attempts with exponential backoff/jitter, a 45-second per-request
+  timeout and the existing overall job deadline. No model/key changes or new
+  credit reservations. Persistent overload becomes `MODEL_UNAVAILABLE`; 429
+  becomes `MODEL_RATE_LIMIT`, both with an actionable UI message and released
+  credit. Other client errors are not retried.
+
+Additional files: `server/services/analysisModelService.js` (explicit SDK policy),
+`server/test/analysisProviderRecovery.test.js` (nine regression/SDK tests),
+`server/evidence/sourceIntegrity.js` (hashed language-selection provenance).
+
+**Live verification:** the affected `av1oUOHihtU` (2,115 seconds) now loads
+**1,051 German caption segments** with an en-US metadata hint. The native track
+is German ASR (`a.de`). This directly verifies the reported transcript failure
+is repaired on that video. The full Gemini report is not live-verified here:
+the user's Google keys remain on their Windows machine. SDK retry tests use a
+local HTTP provider fixture, including 503→200 success, persistent 503, 429,
+non-retryable 400, cancellation and single-credit consumption/release.
+
+**Full regression suite:** `npm test --prefix server` passed all 166 tests
+(zero failures/skips) on Node.js 24.19.0. Authentication, account storage,
+the extension and TradingView UI were not changed by this repair.
+
+For provider retry guidance see [Google's troubleshooting guide](https://ai.google.dev/gemini-api/docs/troubleshooting).
+Temporary recovery is possible; permanent provider availability is not promised.
+
+Update the **existing** `fix/free-analysis-execution` branch, restart Node and
+reload the account page. No `.env`, Resend, subscription or data change required.
+Run each command separately after stopping the Node server:
+
+```powershell
+git -C 'C:\Users\j.krayenbuehl\Desktop\dev\Youtube2Insigt' pull --ff-only origin fix/free-analysis-execution
+```
+
+If Git reports a conflict or local changes, stop; do not reset or discard them.
+
+```powershell
+node 'C:\Users\j.krayenbuehl\Desktop\dev\Youtube2Insigt\server\server.js'
+```
+
+Retry the failed video from the account page. A continuing 503 after all attempts
+is a provider outage, and must still return the credit. A new evidence-validation
+error needs its own actual log; do not weaken evidence checks to force success.
+
+## Original investigation (before the complete error log was available)
+
 Branch: `fix/free-analysis-execution`, based on `cc6e279`.
 The user has manually verified registration, Resend delivery, email verification,
 login and the Free account's one credit. Those functions are preserved.
