@@ -1,3 +1,17 @@
+## Aktuell: Pro-Testcheckout — 18. September 2026
+
+Maßgeblich ist [Pro-Einrichtung und Abnahme](docs/PRO_CHECKOUT_ACCESS.md). Dieser Abschnitt ersetzt den früheren Coming-soon-Status; historische Phasen unten bleiben dokumentiert.
+
+- [x] Free-Stand einschließlich Panel-/Gold-TradingView vom Nutzer abgenommen und über PR #10 auf `main` (`48b0997`) gesichert.
+- [x] Separater Branch `feature/pro-checkout-access`: expliziter Stripe-Testcheckout, geprüftes monatliches Preisangebot und Customer Portal.
+- [x] Pro nur aus signierter, bezahlter Periode; monatliches Kontingent, doppelte/verzögerte Events, fehlgeschlagene Zahlung und Kündigung abgesichert.
+- [x] Kompaktes Profilmenü, Rückkehr zum Creator Overview, bestehende Bibliotheken/CSV/TradingView erhalten.
+- [x] 245 automatisierte Tests bestanden; Stripe-Vertragsprüfungen sind simuliert.
+- [ ] Echten Stripe-Testcheckout plus Webhook, Portal, Verlängerung und fehlgeschlagene Zahlung lokal abnehmen.
+- [ ] Browser-/Extension-Abnahme der neuen Oberfläche; Cloud-Browserzugriff auf localhost hier blockiert.
+- [ ] Nach expliziter Freigabe dieses Feature nach `main` mergen.
+- [ ] Danach getrennt Produktionskonfiguration, HTTPS-Deployment und Live-Zahlungsfreigabe. Kommerzielle Marktdaten weiterhin gesperrt.
+
 ## Nächste Abnahme: zweites Video im Free-Testkonto
 
 - [x] Lokaler Test-Credit-Helfer mit verifiziertem SQLite-Backup und Produktionssperre.
@@ -7,8 +21,8 @@
 - [x] Neuer Video-Lauf vom Nutzer bestätigt: vollständiger Report, `analysis_completed`, Credit 0 (18.09.2026).
 - [x] Panel-Ticker auf direkte TradingView-Links umgestellt; 224 automatisierte Tests grün.
 - [x] Gold als COMMODITY erhält beim Lesen einen gekennzeichneten Gold/USD-Referenzchart, auch ohne Ticker; 229 Tests grün.
-- [ ] Gold-Link lokal in Chrome prüfen, danach Feature-Stand mit GitHub abgleichen und nach main mergen.
-- [ ] Danach separat Pro-Testcheckout mit serverseitigen Berechtigungen; Research-Ansicht ohne großen „Konto & Pro“-Reiter.
+- [x] Gold-Link lokal vom Nutzer bestätigt; Free-Stand auf main über PR #10 gesichert.
+- [x] Pro-Testcheckout separat implementiert; echte Stripe-Abnahme siehe aktueller Abschnitt oben.
 
 Anleitung: [Free-Abnahme](docs/FREE_SECOND_VIDEO_ACCEPTANCE.md). Der Live-Erfolg ist Voraussetzung für den Merge. Kein Deployment und kein Live-Payment behauptet.
 

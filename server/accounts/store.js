@@ -103,12 +103,14 @@ class AccountStore {
   subscription(userId) { return this.db.prepare('SELECT * FROM subscriptions WHERE user_id=?').get(userId) || null; }
   isPro(userId) {
     const sub = this.subscription(userId);
-    return Boolean(sub && sub.status === 'active' && sub.period_end > this.now());
+    return Boolean(sub && sub.status === 'active' && sub.period_end > this.now() &&
+      this.db.prepare("SELECT 1 FROM credit_grants WHERE user_id=? AND kind='pro' AND id='pro:' || ? || ':' || starts_at AND starts_at<=? AND expires_at=?").get(userId, sub.subscription_id, this.now(), sub.period_end));
   }
   grants(userId) {
     return this.db.prepare(`SELECT g.*, g.amount-(SELECT count(*) FROM jobs j WHERE j.grant_id=g.id AND j.state IN ('reserved','complete')) AS available
       FROM credit_grants g WHERE g.user_id=? AND g.starts_at<=? AND g.expires_at>? ORDER BY g.expires_at`).all(userId, this.now(), this.now())
-      .filter(grant => grant.kind === 'free' || this.isPro(userId));
+      .filter(grant => grant.kind === 'free' || (this.isPro(userId) &&
+        grant.id === `pro:${this.subscription(userId).subscription_id}:${grant.starts_at}` && grant.expires_at === this.subscription(userId).period_end));
   }
   account(userId) {
     this.recoverExpired();

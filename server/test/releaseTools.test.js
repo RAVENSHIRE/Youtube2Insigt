@@ -17,8 +17,9 @@ test('readiness report never confuses configured credentials with live verificat
   const missing = inspectConfiguration({}); assert.equal(missing.status, 'blocked');
   const configured = inspectConfiguration({ PUBLIC_BASE_URL: 'https://beta.example.test', ACCOUNT_DB_PATH: path.resolve('unused.sqlite'),
     EXTENSION_ORIGINS: `chrome-extension://${'a'.repeat(32)}`, GEMINI_API_KEY: 'secret-a', YOUTUBE_API_KEY: 'secret-b',
-    RESEND_API_KEY: 'secret-c', MAIL_FROM: 'example@example.test', STRIPE_SECRET_KEY: 'sk_test_secret', STRIPE_PRO_PRICE_ID: 'price_fixture', STRIPE_WEBHOOK_SECRET: 'secret-d' });
+    BILLING_MODE: 'test', RESEND_API_KEY: 'secret-c', MAIL_FROM: 'example@example.test', STRIPE_SECRET_KEY: 'sk_test_secret', STRIPE_PRO_PRICE_ID: 'price_fixture', STRIPE_WEBHOOK_SECRET: 'secret-d' });
   assert.equal(configured.status, 'configuration_present_verification_required');
+  assert.equal(configured.checks.stripe_test_mode_enabled, true); assert.equal(inspectConfiguration({BILLING_MODE:'live',STRIPE_SECRET_KEY:'sk_live_fixture'}).checks.stripe_test_mode_enabled,false);
   assert.equal(configured.stripe_mode, 'test'); assert.equal(JSON.stringify(configured).includes('secret-'), false);
 });
 test('a pending extension response cannot cross a personal/example scope change', async () => {

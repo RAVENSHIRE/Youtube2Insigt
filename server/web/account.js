@@ -1,6 +1,9 @@
 const byId = id => document.getElementById(id);
 const message = (text, error = false) => { byId('message').textContent = text; byId('message').classList.toggle('error', error); };
 const safe = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const billingUI = globalThis.ProBilling?.create({ request, byId, message, onActivated: async () => {
+  await refresh(); byId('profileMenu').open = false; byId('creatorOverviewSection').scrollIntoView?.({behavior:'smooth'});
+} });
 let resetToken = null;
 let libraryEpoch = 0;
 let creators = [], selectedCreator = null, researchVideos = [], mixPath = [], companyVideos = null;
@@ -68,15 +71,19 @@ async function refresh() {
   try { account = await request('/me'); } catch (error) {
     if (epoch !== libraryEpoch) return;
     if (error.status !== 401) throw error;
+    byId('profileMenu').hidden = true; await billingUI?.render(null);
     byId('auth').hidden = false; byId('accountIntro').hidden = false; byId('accountPanel').hidden = true; clearResearch(); return;
   }
   if (epoch !== libraryEpoch) return;
   byId('auth').hidden = true; byId('accountIntro').hidden = true; byId('accountPanel').hidden = false;
+  byId('profileMenu').hidden = false;
+  byId('accountSummary').textContent = `${account.plan === 'pro' ? 'Pro' : 'Free'} · ${account.analyses_available} Analysen`;
   byId('identity').textContent = account.email;
   byId('plan').textContent = account.plan === 'pro' ? 'Pro' : 'Free';
   byId('credits').textContent = account.analyses_available;
   byId('subscription').textContent = account.subscription ? `Status: ${account.subscription.status} · Laufzeit bis ${new Date(account.subscription.period_end).toLocaleDateString('de-CH')}${account.subscription.cancel_at_period_end ? ' · Kündigung vorgemerkt' : ''}` : 'Kein laufendes Abo.';
-  byId('proDescription').textContent = 'Pro · Coming soon. In dieser Beta ist kein Abschluss möglich. Deine gespeicherten Reports bleiben ohne erneuten Analyseverbrauch lesbar.';
+  void billingUI?.render(account); // Billing provider latency must not block saved research.
+  if (epoch !== libraryEpoch) return;
   const data = await request('/creators');
   if (epoch !== libraryEpoch) return;
   creators = data.creators || [];
@@ -118,7 +125,7 @@ byId('personalLibrary').addEventListener('click', async event => {
     if (epoch === libraryEpoch) { if(button.dataset.reportLabel)button.textContent = 'Vollständigen Report öffnen'; message(error.message, true); }
   } finally { button.disabled = false; }
 });
-byId('authForm').addEventListener('submit', run(async () => { await request('/auth/login', { email: byId('email').value, password: byId('password').value }); byId('password').value = ''; message('Angemeldet.'); await refresh(); }));
+byId('authForm').addEventListener('submit', run(async () => { await request('/auth/login', { email: byId('email').value, password: byId('password').value }); byId('password').value = ''; message('Angemeldet.'); await refresh(); await billingUI?.handleReturn(); }));
 function registrationMode(enabled) {
   byId('authForm').hidden = enabled; byId('registerForm').hidden = !enabled;
   for (const id of ['password', 'registerPassword', 'confirmPassword']) byId(id).value = '';
@@ -150,7 +157,7 @@ byId('resendVerification').addEventListener('click', run(async () => {
 }));
 byId('reset').addEventListener('click', run(async () => { message((await request('/auth/password-reset', { email: byId('email').value })).message); }));
 byId('resetForm').addEventListener('submit', run(async () => { await request('/auth/password-reset/confirm', { token: resetToken, password: byId('newPassword').value }); resetToken = null; byId('newPassword').value = ''; byId('resetPanel').hidden = true; message('Passwort geändert. Bitte anmelden.'); await refresh(); }));
-byId('logout').addEventListener('click', run(async () => { libraryEpoch++; clearResearch(); await request('/auth/logout', {}); message('Abgemeldet.'); await refresh(); }));
+byId('logout').addEventListener('click', run(async () => { libraryEpoch++; clearResearch(); await billingUI?.render(null); await request('/auth/logout', {}); message('Abgemeldet.'); await refresh(); }));
 byId('analysisForm').addEventListener('submit', run(async () => {
   const url = new URL(byId('videoUrl').value), videoId = url.searchParams.get('v');
   if (!['www.youtube.com', 'youtube.com'].includes(url.hostname) || !/^[\w-]{11}$/.test(videoId || '')) throw Error('Eine vollständige YouTube-Video-URL eingeben.');
@@ -173,5 +180,5 @@ byId('analysisForm').addEventListener('submit', run(async () => {
   if (verification || resetToken) history.replaceState(null, '', location.pathname);
   if (verification) { await request('/auth/verify', { token: verification }); message('E-Mail bestätigt. Deine kostenlose Analyse ist verfügbar.'); }
   if (resetToken) byId('resetPanel').hidden = false;
-  await refresh();
+  await refresh(); await billingUI?.handleReturn();
 })().catch(error => message(error.message, true));

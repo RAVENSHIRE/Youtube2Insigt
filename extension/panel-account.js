@@ -7,6 +7,7 @@
     element('accountLabel').textContent = AppApi.config.legacy ? 'Lokale Entwicklung' : account ? `${account.plan === 'pro' ? 'Pro' : 'Free'} · ${account.analyses_available} Analysen` : 'Anmelden · 1 Analyse kostenlos';
     element('panelLogin').hidden = Boolean(account) || AppApi.config.legacy;
     element('panelLogout').hidden = !account;
+    element('openAccount').textContent = account?.plan === 'pro' ? 'Abo verwalten' : account && AppApi.config.billingAvailable ? 'Pro testen' : 'Konto öffnen';
     element('syncYoutube').disabled = !account || !AppApi.config.youtubeSyncAvailable;
     element('syncYoutube').title = AppApi.config.youtubeSyncAvailable ? 'Liest Abos nach ausdrücklicher Zustimmung. Keine automatischen Analysen.' : 'Google-OAuth nicht eingerichtet. Creator können manuell hinzugefügt werden.';
     return account;
@@ -22,7 +23,7 @@
     element('panelLogout').addEventListener('click', run(async () => {
       await AppApi.logout(); await refreshAccount(); document.dispatchEvent(new Event('accountChanged'));
     }));
-    element('openAccount').addEventListener('click', run(() => chrome.tabs.create({ url: `${AppApi.base}/account/` })));
+    element('openAccount').addEventListener('click', run(() => chrome.tabs.create({ url: `${AppApi.base}/account/${AppApi.account?.plan === 'pro' ? '#profile' : AppApi.account && AppApi.config.billingAvailable ? '?upgrade=1' : ''}` })));
     element('libraryScope').addEventListener('change', () => {
       AppApi.scope = element('libraryScope').value;
       element('exampleNotice').classList.toggle('hidden', AppApi.scope !== 'examples');
@@ -79,5 +80,6 @@
       } catch (error) { answer.textContent = error.message; }
     }));
   });
+  window.addEventListener('focus', () => refreshAccount().catch(error => status(error.message, true)));
   document.addEventListener('accountRefresh', () => refreshAccount().catch(error => status(error.message, true)));
 })();
