@@ -110,6 +110,20 @@ class BillingService {
   }
   async webhook(raw, signature) {
     const event = verifyWebhook(raw, signature, this.webhookSecret, this.store.now());
+    return this.#processVerifiedEvent(event);
+  }
+  // Operator-only recovery: fetch the authentic event; never accept a caller-supplied payload.
+  // No HTTP route exposes this method and no synthetic webhook signature is generated.
+  async recoverPaidEvent(eventId) {
+    if (!this.client.isConfigured() || this.client.mode !== 'test') throw new AppError('BILLING_TEST_MODE_REQUIRED', 'Test mode required.');
+    if (!/^evt_[\w]+$/u.test(eventId || '')) throw new AppError('WEBHOOK_INVALID', 'Invalid event ID.');
+    const event = await this.client.request('GET', `events/${encodeURIComponent(eventId)}`);
+    if (event.id !== eventId || event.livemode !== false || event.type !== 'invoice.paid' || event.data?.object?.status !== 'paid') {
+      throw new AppError('BILLING_RECOVERY_EVENT_INVALID', 'Expected the requested paid test invoice event.');
+    }
+    return this.#processVerifiedEvent(event, true);
+  }
+  async #processVerifiedEvent(event, recovery = false) {
     if (event.livemode !== false) throw new AppError('BILLING_MODE_MISMATCH', 'Nur Stripe-Testereignisse werden akzeptiert.', 400);
     if (!/^evt_[\w]+$/u.test(event.id || '')) throw new AppError('WEBHOOK_INVALID', 'Invalid event ID.');
     const payload = event.data?.object;
@@ -117,15 +131,20 @@ class BillingService {
     if (!relevant.includes(event.type)) return { received: true, ignored: true };
     const customerId = objectId(payload?.customer);
     const user = this.store.byCustomer(customerId || '');
+    if (!user && recovery) throw new AppError('BILLING_RECOVERY_CUSTOMER_UNKNOWN', 'Customer is not linked locally.');
     if (!user) return { received: true, ignored: true }; // Never grant from untrusted metadata alone.
     return this.locked(user.id, async () => {
-      if (this.store.eventHandled(event.id)) return { received: true, duplicate: true };
+      if (this.store.eventHandled(event.id)) {
+        if (recovery && !this.store.isPro(user.id)) throw new AppError('BILLING_RECOVERY_ALREADY_RECORDED', 'Event recorded without current Pro; separate investigation required.');
+        return { received: true, duplicate: true };
+      }
       const subscriptionId = event.type.startsWith('customer.subscription.') ? payload.id :
         objectId(payload.subscription || payload.parent?.subscription_details?.subscription);
+      if (!subscriptionId && recovery) throw new AppError('BILLING_RECOVERY_IDENTITY_MISSING', 'Missing subscription identity.');
       if (!subscriptionId) return { received: true, ignored: true };
       // Fetch CURRENT canonical state inside the lock. Event delivery order is not state order.
       const sub = await this.client.getSubscription(subscriptionId);
-      if (objectId(sub.customer) !== customerId) throw new AppError('BILLING_IDENTITY_MISMATCH', 'Subscription customer mismatch.', 400);
+      if (sub.id !== subscriptionId || objectId(sub.customer) !== customerId) throw new AppError('BILLING_IDENTITY_MISMATCH', 'Subscription customer mismatch.', 400);
       if (sub.livemode !== false) throw new AppError('BILLING_MODE_MISMATCH', 'Stripe mode mismatch.', 400);
       const items = sub.items?.data || [];
       const item = items.find(item => objectId(item.price) === this.client.priceId);
@@ -153,6 +172,9 @@ class BillingService {
       const matchingLine = lines.find(line => objectId(line.price || line.pricing?.price_details?.price) === this.client.priceId &&
         Number(line.period?.start) * 1000 === start && Number(line.period?.end) * 1000 === end);
       const grant = paid && matchingLine ? { id: `pro:${sub.id}:${start}`, start, end } : null;
+      if (recovery && (!grant || start > this.store.now() || end <= this.store.now())) {
+        throw new AppError('BILLING_RECOVERY_PAYMENT_NOT_CURRENT', 'A paid, active and current matching billing period is required.');
+      }
       this.store.applyBilling(event.id, user.id, { id: sub.id, status: sub.status, periodEnd: end, cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end) }, grant);
       return { received: true, granted: Boolean(grant) };
     });

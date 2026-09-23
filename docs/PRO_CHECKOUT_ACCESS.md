@@ -9,7 +9,7 @@ Keine Freigabe für echte Zahlungen, Deployment oder Merge dieses Features.
 - Pro ergänzt standardmäßig 20 Analysen je **bezahltem** Abrechnungsmonat (`PRO_MONTHLY_ANALYSES`). Eine ungenutzte Gratisanalyse bleibt zusätzlich erhalten. Monatscredits werden nicht übertragen.
 - Preis und Währung stammen aus dem konfigurierten Stripe-Preis: aktiver monatlicher Festpreis, Menge 1, CHF/EUR/USD/GBP. Kein Jahresabo, Mengenmodell, Trial oder Live-Modus in diesem Feature.
 - Der Nutzer sieht Betrag, Kontingent und Testmodus und bestätigt ausdrücklich vor dem Checkout. Stripe kann im Checkout zusätzlich konfigurierte Steuern anzeigen; der Endbetrag dort ist maßgeblich.
-- Der Erfolgslink ist nur ein Statusabruf. Erst ein signierter Webhook mit aktueller Stripe-Subscription und passender bezahlter Rechnung aktiviert Pro. Doppelte Events erzeugen keine weiteren Credits; verspätete Events werden gegen den aktuellen Stripe-Zustand geprüft.
+- Der Erfolgslink ist nur ein Statusabruf. Ein signierter Webhook mit aktueller Stripe-Subscription und passender bezahlter Rechnung aktiviert Pro. Für verpasste lokale Testereignisse existiert zusätzlich das unten dokumentierte Operator-Recovery mit authentifiziertem Stripe-API-Abruf und denselben Zahlungsprüfungen. Doppelte Events erzeugen keine weiteren Credits; verspätete Events werden gegen den aktuellen Stripe-Zustand geprüft.
 - Offene Checkouts werden wiederverwendet. Bei einem bereits abgeschlossenen, noch nicht bestätigten Checkout erscheint ein Wartehinweis. Bestehende Abos werden im Customer Portal verwaltet.
 - `past_due`, `unpaid`, `incomplete`, `trialing`, `canceled` und abgelaufene Zeiträume schalten keine neuen Pro-Analysen frei. Eine vorgemerkte Kündigung erhält Zugang bis zum bezahlten Periodenende. Gespeicherte Reports bleiben erhalten.
 - Analysefehler geben die Reservierung weiterhin frei. Gespeicherte Reports erneut öffnen verbraucht nichts. Stripe-Latenz blockiert das Laden der Research Library nicht.
@@ -35,7 +35,7 @@ Bestehende `.env`, Datenbank, Resend-, YouTube-, Gemini- und Extension-Origin-We
 
 ```powershell
 stripe login
-stripe listen --events checkout.session.completed,invoice.paid,invoice.payment_failed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted --forward-to localhost:3000/billing/webhook
+stripe listen --events "checkout.session.completed,invoice.paid,invoice.payment_failed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted" --forward-to "http://localhost:3000/billing/webhook"
 ```
 
 4. `.env` im Projektroot um folgende Werte ergänzen bzw. vorhandene Zeilen bearbeiten. Platzhalter durch echte **Testwerte** ersetzen, nicht doppelt anlegen. Das `whsec_...` muss vom laufenden CLI-Listener stammen, nicht von einem anderen Dashboard-Webhook:
@@ -118,3 +118,27 @@ Der Helfer kann auch direkt aus Downloads ausgeführt werden; sein erstes Argume
 Fünf neue Diagnose-Tests prüfen diese Abgrenzung, verweigern Live-/falsche Events und bestätigen unveränderte Daten. Kein neuer Stripe-Live-Nachweis aus der Agentenumgebung.
 
 Beim vollständigen Lauf am 23.09.2026: 249/250 bestanden; der bestehende Test `concurrent local preparations cannot give a Free account more than one available test credit` schlug fehl (2 statt 1). Ursache im bestehenden lokalen Reset-Helfer: eine vor dem asynchronen Backup erfasste Uhrzeit kann einen inzwischen angelegten Grant mit späterem `starts_at` beim erneuten Prüfen übersehen. Kein Reset für die Stripe-Diagnose ausführen. Dieser Befund bleibt separat zu korrigieren; die fünf neuen read-only Diagnose-Tests bestehen. Kein uneingeschränkt grüner Gesamtlauf für diesen Stand behauptet.
+
+
+## Nachverarbeitung eines vorhandenen bezahlten Testereignisses (23.09.2026)
+
+Diagnose `PAID_EVENT_NOT_RECORDED_LOCALLY`: Stripe bestätigt das bezahlte, aktive Abo mit passendem Kunden, Preis und Rechnungszeitraum; lokal fehlen Event, Subscription und Monatsgutschrift. Das allein erklärt **nicht**, warum die Webhook-Zustellung bzw. Verarbeitung ausgeblieben ist.
+
+`recover-stripe-paid-event.cjs` ist ein lokaler Operator-Helfer, kein HTTP-Endpunkt. Er ruft das angegebene Originalereignis authentifiziert bei Stripe ab. Der bestehende BillingService verarbeitet es mit denselben Kunden-, Testmodus-, Preis-, Rechnungs- und Periodenprüfungen wie einen signierten Webhook. Zusätzlich muss der Zeitraum aktuell bezahlt/aktiv sein. Keine Signatur wird erfunden, keine Zahlung oder Checkout-Session erzeugt und kein Benutzer manuell auf Pro gesetzt.
+
+Vor `--apply` den Node-Server stoppen. Der Helfer blockiert Produktionsumgebungen, öffentliche Basis-URLs und einen erreichbaren lokalen Serverport. Er prüft zunächst read-only, erstellt ein neues SQLite-Backup mit Integritätsprüfung und liest Stripe nach dem Backup nochmals. Die vorhandene atomare Event-/Subscription-/Grant-Transaktion verhindert Doppelgutschriften; Wiederholungen setzen verbrauchte Credits nicht zurück. Unbekannte Kunden, falsche Preise, abgelaufene Perioden, unbezahlte Rechnungen und bereits verbuchte Events ohne aktuelle Berechtigung werden nicht automatisch repariert. Die Rückkehrseite bleibt unverändert read-only.
+
+```powershell
+Set-Location 'C:\Users\j.krayenbuehl\Desktop\dev\Youtube2Insigt'
+node .\server\scripts\recover-stripe-paid-event.cjs (Get-Location).Path 'evt_DEIN_INVOICE_PAID_EVENT'
+# Erwartet: ready_to_recover. Node-Server bleibt gestoppt.
+node .\server\scripts\recover-stripe-paid-event.cjs (Get-Location).Path 'evt_DEIN_INVOICE_PAID_EVENT' --apply --server-stopped
+if ($LASTEXITCODE -ne 0) { throw 'Recovery blockiert; keine neue Zahlung starten.' }
+node .\server\server.js
+```
+
+Erwartete Ausgabe: `status=recovered`, `eventProcessedLocally=true`, `localProEntitled=true`, `paidPeriodGrantFound=true`, `paymentsCreated=false`. Bei bereits vorhandenem Pro: `already_active`. `configuredMonthlyAnalyses` ist das Monatskontingent, kein Versprechen über noch verfügbare Credits. Bestehender Verbrauch und eine eventuell ungenutzte Gratisanalyse bleiben erhalten. Anschließend Kontoseite aktualisieren und im selben Konto Pro/Restkontingent prüfen. Das ist keine Bestätigung einer funktionierenden Webhook-Zustellung: `webhookDeliveryProven=false`. Listener weiterhin mit korrekt zitiertem `--events`-Argument betreiben und echte zukünftige Zustellungen prüfen; keine erneute Zahlung für denselben Test.
+
+Backup-Pfad wird ausgegeben. Bei einem Providerfehler nach dem Commit nennt die Fehlermeldung ausdrücklich den lokalen Eventstatus und die erfolgten Schreibvorgänge. Erneutes Ausführen ist idempotent. Backups enthalten Kontodaten und bleiben lokal im bestehenden Datenverzeichnis. Ein Datenbank-Rollback darf nur bei gestopptem Server und ohne zwischenzeitliche neue Nutzerdaten erfolgen; nicht pauschal die gesamte Datenbank zurücksetzen.
+
+Verifikation dieses Nachtrags: **266/266 automatisierte Tests bestanden**, darunter 16 neue Recovery-Tests (SQLite-Backup/Readback, doppelte Events, späterer Webhook, Credit-Verbrauch, Kundenisolation, Konfigurationssperren, Provider-/Backupfehler und ungültige Zahlungen). Stripe ist in diesen Tests simuliert; die echte Nachverarbeitung beim Nutzer steht noch aus. Der früher dokumentierte sporadische Free-Retest-Konkurrenzfehler wurde durch diesen Billing-Patch nicht geändert; der vollständige Lauf bestand diesmal. Kein neuer Browser-E2E- oder Live-Payment-Nachweis.
