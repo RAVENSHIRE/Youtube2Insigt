@@ -96,3 +96,25 @@ Rollback: Server stoppen, neuen Feature-Patch mit `git apply -R --check` prüfen
 Vor einem öffentlichen Kaufangebot bleiben echte Stripe-Test-Abnahme, Preis-/Steuer-/Portal-Konfiguration, HTTPS-Deployment, dauerhafte Datenbank samt Recovery und Betreiber-/Datenschutz-/Vertragsangaben offen. **Live-Schlüssel allein aktivieren in diesem Branch keine echten Zahlungen.** Dafür folgt nach dieser Abnahme eine separate Freigabe und Implementierung. Marktdaten bleiben bis zur vertraglichen Rechtefreigabe außen vor.
 
 Quellen: [Stripe-Webhooks und lokaler Listener](https://docs.stripe.com/webhooks), [Testkarten](https://docs.stripe.com/testing), [Test Clocks](https://docs.stripe.com/billing/testing/test-clocks).
+
+## Bezahlter Checkout bleibt pending — Diagnose (23.09.2026)
+
+Ein Stripe-Event `invoice.paid` plus aktives Test-Abo beweist noch keine lokale Verarbeitung. Der Rückkehr-Status liest nur die lokale Datenbank. Nicht erneut bezahlen oder mit einem künstlichen Ereignis Credits freischalten.
+
+`server/scripts/diagnose-stripe-checkout.cjs` gleicht ein vorhandenes Test-`invoice.paid`-Event, die aktuelle Subscription, die aktuelle Rechnung und den lokalen Kontostand ab. Es öffnet die vorhandene SQLite-Datei read-only und verwendet nur lesende Provider-Aufrufe. Es gibt keine Schlüssel, E-Mails, Checkout-URLs oder Kunden-IDs aus. Es erzeugt keine Zahlung und keine Credits. Die Ausgabe beweist nicht, dass derselbe Serverprozess dieselbe Datenbank verwendet; bei lokal aktivem Pro zusätzlich laufenden Server und angemeldetes Konto prüfen.
+
+```powershell
+node .\server\scripts\diagnose-stripe-checkout.cjs 'C:\Users\j.krayenbuehl\Desktop\dev\Youtube2Insigt' 'evt_DEIN_INVOICE_PAID_EVENT'
+```
+
+Der Helfer kann auch direkt aus Downloads ausgeführt werden; sein erstes Argument bleibt der absolute Projektroot. Kein Patch, Branchwechsel, Serverstopp oder Datenbank-Reset ist dafür erforderlich.
+
+- `PAID_EVENT_NOT_RECORDED_LOCALLY`: echtes Zahlungsereignis lokal nicht als verarbeitet gespeichert; Weiterleitung/Signatur/Handler-Fehler untersuchen.
+- `NO_MATCHING_LOCAL_CUSTOMER`: Stripe-Kunde gehört keinem Konto in dieser Datenbank; Datenbank/Stripe-Umgebung prüfen.
+- `CANONICAL_PAYMENT_CHECK_FAILED`: einzelne ausgegebene Prüfungen zeigen Preis-, Rechnungs-, Identitäts- oder Zeitraumproblem.
+- `EVENT_RECORDED_WITHOUT_CURRENT_PRO_ACCESS`: Event gespeichert, aber kein aktueller Pro-Zugang; keine blinde erneute Gutschrift.
+- `LOCAL_PRO_ACTIVE_CHECK_BROWSER_ACCOUNT_AND_SERVER`: Pro lokal aktiv; UI-Konto und tatsächlich laufenden Server prüfen.
+
+Fünf neue Diagnose-Tests prüfen diese Abgrenzung, verweigern Live-/falsche Events und bestätigen unveränderte Daten. Kein neuer Stripe-Live-Nachweis aus der Agentenumgebung.
+
+Beim vollständigen Lauf am 23.09.2026: 249/250 bestanden; der bestehende Test `concurrent local preparations cannot give a Free account more than one available test credit` schlug fehl (2 statt 1). Ursache im bestehenden lokalen Reset-Helfer: eine vor dem asynchronen Backup erfasste Uhrzeit kann einen inzwischen angelegten Grant mit späterem `starts_at` beim erneuten Prüfen übersehen. Kein Reset für die Stripe-Diagnose ausführen. Dieser Befund bleibt separat zu korrigieren; die fünf neuen read-only Diagnose-Tests bestehen. Kein uneingeschränkt grüner Gesamtlauf für diesen Stand behauptet.
