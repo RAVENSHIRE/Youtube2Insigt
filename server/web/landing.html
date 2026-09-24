@@ -1,10 +1,156 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Mit SignalTube Finanzvideos in eine persönliche Research Library verwandeln: Originalbelege prüfen, Ideen wiederfinden und Symbole exportieren."><title>SignalTube · YouTube → Investment Research</title><link rel="icon" href="/account/brand.svg" type="image/svg+xml"><link rel="stylesheet" href="/account/account.css"><link rel="stylesheet" href="/account/landing.css"></head>
-<body><main><header><a class="wordmark" href="/"><img src="/account/brand.svg" alt="" width="36" height="36">Signal<span>Tube</span></a><a class="button secondary" href="/account/">Anmelden</a></header>
-<section class="hero"><div><p class="eyebrow">YOUTUBE → INVESTMENT RESEARCH</p><h1>Video gesehen.<br>Idee behalten.</h1><p class="lead">Deine Finanzvideos werden zur persönlichen Research Library. Mit Thesen, Originalbelegen und Zeitmarken, die dich zurück zur Quelle führen.</p><div class="actions"><a class="button" href="/account/">1 Video kostenlos analysieren</a><a href="#ablauf">So funktioniert’s ↓</a></div><p class="fine">Private Beta · Konto und E-Mail-Bestätigung erforderlich.<br>Kein Aboabschluss. Nicht jedes Video kann analysiert werden.</p></div>
-<aside class="preview card" aria-label="Illustrative Report-Vorschau"><div class="row"><span class="badge">So ist ein Report aufgebaut</span><span class="signal-dot" aria-hidden="true"></span></div><p class="eyebrow">DEINE RESEARCH LIBRARY</p><h2>Vom Gedanken<br>zur überprüfbaren Quelle.</h2><div class="preview-row"><span>01</span><div><strong>Investment-These</strong><p>Was der Creator sagt – mit Risiken und genannten Levels, sofern belegt.</p></div></div><div class="preview-row"><span>02</span><div><strong>Originalbeleg &amp; Zeitmarke</strong><p>Originalsprache erhalten. Zur passenden Stelle im Video zurückspringen.</p></div></div><div class="preview-row"><span>03</span><div><strong>Wiederfinden &amp; weiterverfolgen</strong><p>Gespeicherten Report lesen, TradingView öffnen oder einen CSV-Report exportieren.</p></div></div><p class="fine">Illustration des Aufbaus, keine Anlageempfehlung.</p></aside></section>
-<section class="card workflow" id="ablauf"><p class="eyebrow">DREI SCHRITTE</p><h2>Aus einem Video wird bleibende Recherche.</h2><ol><li><strong>Video auswählen</strong><span>Ein unterstütztes deutsches oder englisches YouTube-Video bewusst analysieren.</span></li><li><strong>Belege prüfen</strong><span>These, Risiken und Zitate im Kontext lesen. Fehlende Informationen bleiben als solche sichtbar.</span></li><li><strong>Ideen wiederfinden</strong><span>Deinen gespeicherten Report wieder öffnen. Ohne erneuten Analyseverbrauch.</span></li></ol></section>
-<section class="feature-grid"><div class="card"><p class="eyebrow">DEINE QUELLEN</p><h2>Ein Ort für deine Creator.</h2><p>Creator Overview, sektorbasierter Report-Mix und Research Library helfen, gespeicherte Inhalte einzuordnen.</p><p>Die getrennte Beispielbibliothek zeigt Altberichte aus mehreren Kanälen. Deren Originalbelege sind noch nicht vollständig nachgeprüft.</p></div></section>
-<section class="card pro-preview"><div><p class="eyebrow">MEHR RAUM FÜR RECHERCHE</p><h2>SignalTube Pro</h2><p>Ein größeres Analysebudget ist geplant. Umfang und Preis werden vor der Freigabe veröffentlicht.</p></div><span class="badge">Coming soon</span></section>
-<div class="closing"><h2>Dein nächstes Video muss nicht verloren gehen.</h2><a class="button" href="/account/">Kostenlos starten</a></div>
-<footer>SignalTube ist ein unabhängiges Research-Werkzeug und kein Produkt von YouTube, Google, Yahoo oder TradingView. KI-Auswertungen können Fehler enthalten und sind keine Anlageberatung. Marktdaten sind in dieser Beta deaktiviert.<br><a href="/account/privacy.html">Datenschutz &amp; Beta-Hinweise</a> · <a href="/account/">Dein Konto</a></footer></main></body></html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#090c10">
+  <meta name="description" content="Verwandle Finanzvideos in deine persönliche Research Library. Investment-Thesen, Risiken und Originalbelege wiederfinden. Ein Video kostenlos analysieren.">
+  <title>SignalTube · Video gesehen. Idee behalten.</title>
+  <link rel="icon" href="/account/brand.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/account/landing.css">
+</head>
+<body>
+  <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="wordmark" href="/" aria-label="SignalTube Startseite">
+        <img src="/account/brand.svg" alt="" width="36" height="36">
+        <span>Signal<span class="wordmark-accent">Tube</span></span>
+      </a>
+      <nav class="primary-nav" aria-label="Hauptnavigation">
+        <a href="#ablauf">So funktioniert’s</a>
+        <a href="#umfang">Free &amp; Pro</a>
+        <a href="#fragen">Fragen</a>
+      </nav>
+      <a class="button button-small button-secondary" href="/account/">Anmelden <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+
+  <main id="inhalt" tabindex="-1">
+    <section class="hero container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> DEIN YOUTUBE. DEINE RECHERCHE.</p>
+        <h1 id="hero-title">Video gesehen.<br><span>Idee behalten.</span></h1>
+        <p class="hero-description">Gute Investment-Ideen verdienen mehr als einen offenen Tab. Sammle Thesen, Risiken und Originalbelege aus Finanzvideos in deiner persönlichen Research Library.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="/account/">1 Video kostenlos analysieren <span aria-hidden="true">→</span></a>
+          <a class="text-link" href="#einblick">Report-Aufbau ansehen <span aria-hidden="true">↓</span></a>
+        </div>
+        <p class="hero-note">Einmalig kostenlos. Kein Abo für den Free-Einstieg.<br>Konto und E-Mail-Bestätigung erforderlich.</p>
+        <ul class="hero-benefits" aria-label="Deine Recherche auf einen Blick">
+          <li>Originalbelege</li>
+          <li>Video-Zeitmarken</li>
+          <li>Gespeicherte Reports</li>
+        </ul>
+      </div>
+
+      <figure class="product-preview" id="einblick" aria-labelledby="preview-caption">
+        <div class="preview-topbar">
+          <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          <span>Deine Research Library</span>
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 10h12v10H6zM8 10V6a4 4 0 0 1 8 0v4"/></svg>
+        </div>
+        <div class="preview-body">
+          <div class="preview-heading">
+            <div><p class="eyebrow">DEINE QUELLEN AN EINEM ORT</p><h2>Creator Overview</h2></div>
+            <span class="small-label">Vorschau</span>
+          </div>
+          <div class="creator-preview">
+            <span class="creator-avatar" aria-hidden="true">C</span>
+            <div><strong>Dein ausgewählter Creator</strong><span>Reports nach Kanal geordnet</span></div>
+            <span class="creator-arrow" aria-hidden="true">↗</span>
+          </div>
+          <div class="mix-preview">
+            <div class="sector-ring" aria-hidden="true"><span></span></div>
+            <div class="mix-copy"><h3>Report-Mix</h3><p>Von Sektoren zu Unternehmen.</p><div class="legend" aria-hidden="true"><span>Technology</span><span>Industrials</span></div></div>
+          </div>
+          <div class="report-preview">
+            <div class="report-label"><span>ANALYSEBERICHT</span><span class="source-label">Mit Quellenbezug</span></div>
+            <h3>Die Idee. Der Kontext. Der Beleg.</h3>
+            <div class="preview-lines" aria-hidden="true"><span class="skeleton"></span><span class="skeleton skeleton-short"></span></div>
+            <div class="evidence-preview">
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5h12v14H8M4 8h4M4 12h4M4 16h4M12 9h5M12 13h5"/></svg>
+              <div><strong>Originalbeleg &amp; Zeitmarke</strong><p>Die Aussage direkt im Video prüfen.</p></div>
+            </div>
+            <div class="preview-tags"><span>These</span><span>Risiken</span><span>Genannte Levels</span></div>
+          </div>
+        </div>
+        <figcaption id="preview-caption">Illustrativer Produktaufbau · keine Live-Daten</figcaption>
+      </figure>
+    </section>
+
+    <section class="workflow section container" id="ablauf" aria-labelledby="workflow-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">WENIGER SUCHEN. MEHR VERSTEHEN.</p><h2 id="workflow-title">Aus einem Video wird<br>bleibende Recherche.</h2></div>
+        <p>Du wählst das Video.<br>Deine Bibliothek hält die Idee fest.</p>
+      </div>
+      <ol class="steps">
+        <li><span class="step-number" aria-hidden="true">01</span><h3>Video auswählen</h3><p>Ein unterstütztes YouTube-Video einfügen und die Analyse bewusst starten. Dein verfügbares Budget siehst du vorab.</p></li>
+        <li><span class="step-number" aria-hidden="true">02</span><h3>Belege prüfen</h3><p>Thesen, Risiken, Ziele und Aktionen im Kontext lesen. Originalstellen mit Zeitmarken führen zurück zum Video.</p></li>
+        <li><span class="step-number" aria-hidden="true">03</span><h3>Ideen wiederfinden</h3><p>Deinen Creator auswählen, Reports durchsuchen und frühere Analysen öffnen. Erneutes Lesen verbraucht keine Analyse.</p></li>
+      </ol>
+    </section>
+
+    <section class="research-section section container" aria-labelledby="research-title">
+      <div class="research-intro">
+        <p class="eyebrow">MEHR KONTEXT. KLARERE QUELLEN.</p>
+        <h2 id="research-title">Nicht nur zusammenfassen.<br>Nachvollziehen.</h2>
+        <p>Was wurde tatsächlich gesagt? Welche Risiken wurden genannt? SignalTube hält die Aussagen mit ihrer Quelle zusammen – damit du dir selbst ein Bild machen kannst.</p>
+        <a class="text-link" href="/account/">Deine Research Library starten <span aria-hidden="true">→</span></a>
+      </div>
+      <ul class="research-features">
+        <li><span class="feature-icon" aria-hidden="true">↳</span><div><h3>Zurück zur Originalstelle</h3><p>Originalzitate bleiben in ihrer Quellsprache. Vorhandene Übersetzungen sind separat gekennzeichnet.</p></div></li>
+        <li><span class="feature-icon" aria-hidden="true">◷</span><div><h3>Den Überblick behalten</h3><p>Creator Overview und Sektor-Mix ordnen deine analysierten Videos. Die einfache Suche bringt dich zum passenden Report.</p></div></li>
+        <li><span class="feature-icon" aria-hidden="true">↗</span><div><h3>Deine Recherche mitnehmen</h3><p>Vollständige Reports als CSV exportieren und eindeutig zugeordnete Instrumente direkt auf TradingView öffnen.</p></div></li>
+      </ul>
+    </section>
+
+    <section class="plans-section section container" id="umfang" aria-labelledby="plans-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">KLEIN STARTEN. GEZIELT VERTIEFEN.</p><h2 id="plans-title">Dein nächstes Video ist der Anfang.</h2></div>
+        <p>Eine persönliche Bibliothek.<br>Das Analysebudget, das zu dir passt.</p>
+      </div>
+      <div class="plans-grid">
+        <article class="plan-card" aria-labelledby="free-title">
+          <div class="plan-topline"><h3 id="free-title">Free</h3><span class="small-label">Zum Kennenlernen</span></div>
+          <p class="plan-value">1 Video<span>einmalig kostenlos</span></p>
+          <p class="plan-description">Erlebe den Ablauf mit einem Video deiner Wahl, sofern ein unterstütztes Transkript verfügbar ist.</p>
+          <ul class="plan-features"><li>Vollständiger persönlicher Analysebericht</li><li>Originalbelege und verfügbare Zeitmarken</li><li>Gespeicherten Report erneut lesen und exportieren</li></ul>
+          <a class="button button-secondary" href="/account/">Kostenlos starten <span aria-hidden="true">→</span></a>
+        </article>
+        <article class="plan-card plan-pro" aria-labelledby="pro-title">
+          <div class="plan-topline"><h3 id="pro-title">Pro</h3><span class="small-label pro-label">Aktuell im Testmodus</span></div>
+          <p class="plan-value">Mehr Recherche<span>monatliches Analysebudget</span></p>
+          <p class="plan-description">Baue deine persönliche Research Library mit weiteren Videos und Creatorn aus.</p>
+          <ul class="plan-features"><li>Zusätzliche Analysen je bezahltem Abrechnungsmonat</li><li>Deine Reports im Creator Overview und Sektor-Mix</li><li>Abo und Analysebudget im Konto verwalten</li></ul>
+          <a class="button button-primary" href="/account/">Pro im Konto ansehen <span aria-hidden="true">→</span></a>
+          <p class="plan-note">Preis und Kontingent werden im Konto angezeigt. Der Checkout läuft derzeit ausschließlich als Stripe-Testzahlung.</p>
+        </article>
+      </div>
+      <p class="plans-note">Eine Analyse startet erst mit deiner Bestätigung. Scheitert sie, wird die Reservierung freigegeben.</p>
+    </section>
+
+    <section class="faq-section section container" id="fragen" aria-labelledby="faq-title">
+      <div class="faq-intro"><p class="eyebrow">GUT ZU WISSEN</p><h2 id="faq-title">Klar, bevor du startest.</h2></div>
+      <div class="faq-list">
+        <details><summary>Welche Videos kann ich analysieren?<span aria-hidden="true">+</span></summary><div class="faq-answer"><p>Die Beta unterstützt geeignete deutsch- und englischsprachige YouTube-Videos mit verfügbarem Transkript. Nicht jedes Video lässt sich zuverlässig auswerten. Fehlende Belege, Kursziele oder Risiken werden nicht ergänzt oder erfunden. Bei einem Analysefehler wird die reservierte Analyse freigegeben.</p></div></details>
+        <details><summary>Was enthält die Beispielbibliothek?<span aria-hidden="true">+</span></summary><div class="faq-answer"><p>Im Konto kannst du die getrennte Beispielbibliothek auswählen. Sie zeigt kuratierte Altberichte mehrerer Creator. Ihre Originalbelege und Zeitmarken sind noch nicht vollständig nachgeprüft. Deine persönliche Bibliothek startet leer und bleibt davon getrennt.</p></div></details>
+        <details><summary>Ist die Chrome-Erweiterung schon im Store?<span aria-hidden="true">+</span></summary><div class="faq-answer"><p>Die Erweiterung wird derzeit in der privaten Beta getestet. Die öffentliche Chrome-Web-Store-Version folgt erst nach Freigabe. Du kannst die persönliche Research Library bereits über die Kontoseite nutzen.</p></div></details>
+        <details><summary>Enthält Pro Live-Kurse oder Anlageempfehlungen?<span aria-hidden="true">+</span></summary><div class="faq-answer"><p>Nein. Kommerzielle Marktdaten und Performance-Auswertungen sind in dieser Beta deaktiviert. TradingView-Links öffnen externe Charts. SignalTube hilft bei der Recherche; KI-Berichte können Fehler enthalten und ersetzen keine eigene Prüfung oder Anlageberatung.</p></div></details>
+      </div>
+    </section>
+
+    <section class="closing-section container" aria-labelledby="closing-title">
+      <div><p class="eyebrow">VOM ANSEHEN ZUM WIEDERFINDEN</p><h2 id="closing-title">Deine nächste Idee.<br>Diesmal mit Kontext.</h2></div>
+      <a class="button button-primary" href="/account/">1 Video kostenlos analysieren <span aria-hidden="true">→</span></a>
+    </section>
+  </main>
+
+  <footer class="site-footer container">
+    <div class="footer-top"><a class="wordmark" href="/" aria-label="SignalTube Startseite"><img src="/account/brand.svg" alt="" width="28" height="28"><span>Signal<span class="wordmark-accent">Tube</span></span></a><nav aria-label="Weitere Informationen"><a href="/account/privacy.html">Datenschutz &amp; Beta-Hinweise</a><a href="/account/">Dein Konto</a></nav></div>
+    <p>SignalTube ist ein unabhängiges Research-Werkzeug und kein Produkt von YouTube, Google oder TradingView. KI-Auswertungen können Fehler enthalten und sind keine Anlageberatung.</p>
+    <p class="footer-status">Private Beta · Öffentlicher Start und Store-Freigabe stehen noch aus.</p>
+  </footer>
+</body>
+</html>
