@@ -22,6 +22,12 @@ function errorDetails(error, env, seen = new Set()) {
   if (!error || seen.has(error) || seen.size >= 3) return null;
   seen.add(error);
   return { name: redact(error.name || 'Error', env), message: redact(error.message || String(error), env),
+    ...(/^[A-Z_]{3,40}$/u.test(error.selectionReason || '') ? { selection: {
+      reason: error.selectionReason,
+      ids: Array.isArray(error.selectedSegmentIds) ? error.selectedSegmentIds.slice(0, 6).map(id =>
+        typeof id === 'string' && /^s\d{1,6}$/u.test(id) ? id : '[invalid]') : [],
+      sourceSegmentCount: Number.isSafeInteger(error.sourceSegmentCount) ? error.sourceSegmentCount : null
+    } } : {}),
     stack: redact(error.stack || '', env), ...(error.cause ? { cause: errorDetails(error.cause, env, seen) } : {}) };
 }
 function logAnalysis(logger, { jobId, videoId, stage, error, state }, env = process.env) {

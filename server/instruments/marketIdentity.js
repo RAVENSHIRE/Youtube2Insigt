@@ -1,5 +1,6 @@
 const { resolveInstrumentIdentity } = require('./instrumentResolver');
 const { AppError } = require('../accounts/store');
+const { commodityTradingView } = require('./commodityTradingView');
 const cleanName = value => String(value || '').toLowerCase().replace(/\b(inc|ltd|limited|corporation|corp|holdings|common|stock|shares|class|plc)\b/gu, '').replace(/[^a-z0-9]/gu, '');
 const EXCHANGES = { NASDAQ: 'NASDAQ', NYSE: 'NYSE', 'NYSE American': 'AMEX', AMEX: 'AMEX', XETRA: 'XETR' };
 const VERIFIED_LISTINGS = Object.freeze({
@@ -16,6 +17,7 @@ function identityConflict(company) {
 }
 function tradingViewLink(company) {
   if (identityConflict(company)) return null;
+  if (String(company.asset_type || '').trim().toLowerCase() === 'commodity') return commodityTradingView(company)?.url || null;
   const identity = resolveInstrumentIdentity(company);
   const symbol = identity.current_symbol;
   let exchange = identity.current_exchange || company.verified_listing?.exchange;

@@ -1,3 +1,5 @@
+> Pro-Testcheckout (18.09.2026): [Aktuelle Einrichtung und Abnahme](PRO_CHECKOUT_ACCESS.md). Dieser Branch erfordert `BILLING_MODE=test`; Live-Schlüssel bleiben gesperrt. Die ältere Checkliste unten allein aktiviert keine Zahlungen.
+
 # MVP setup and reversible recovery
 
 This is a release-candidate setup, not evidence of an existing deployment.

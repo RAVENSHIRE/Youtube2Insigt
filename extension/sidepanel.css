@@ -1027,6 +1027,7 @@ button {
 }
 
 .company-chip {
+  text-decoration: none;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -1728,3 +1729,5 @@ button {
 .evidence-marker:focus-visible { outline: 2px solid white; outline-offset: 3px; }
 .evidence-legacy small, .evidence-item small { display: block; color: #c3cbd6; margin-top: 5px; }
 .evidence-translation, .report-missing { color: #c3cbd6; font-size: 12px; line-height: 1.5; }
+
+.report-publication{color:var(--text);font-weight:650}.report-export{margin:16px 0}.report-export button{background:var(--surface-strong);color:var(--text);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit}.report-export button:disabled{opacity:.6;cursor:wait}.report-export button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.report-export p{font-size:12px;color:var(--muted);line-height:1.5}

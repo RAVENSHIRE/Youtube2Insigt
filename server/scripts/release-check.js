@@ -1,5 +1,6 @@
 const path = require('node:path');
 const { Mailer } = require('../accounts/auth');
+const { StripeClient } = require('../accounts/billing');
 function inspectConfiguration(env, nodeVersion = process.versions.node) {
   const checks = {
     node_supported: Number(nodeVersion.split('.')[0]) >= 24 && Number(nodeVersion.split('.')[0]) < 27,
@@ -10,7 +11,8 @@ function inspectConfiguration(env, nodeVersion = process.versions.node) {
     analysis_credentials_present: Boolean(env.GEMINI_API_KEY && env.YOUTUBE_API_KEY),
     email_credentials_present: Boolean(env.RESEND_API_KEY && env.MAIL_FROM),
     email_configuration_valid: new Mailer({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM, publicUrl: env.PUBLIC_BASE_URL }).isConfigured(),
-    stripe_credentials_present: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRO_PRICE_ID && env.STRIPE_WEBHOOK_SECRET)
+    stripe_credentials_present: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PRO_PRICE_ID && env.STRIPE_WEBHOOK_SECRET),
+    stripe_test_mode_enabled: new StripeClient({ secret: env.STRIPE_SECRET_KEY, priceId: env.STRIPE_PRO_PRICE_ID, publicUrl: env.PUBLIC_BASE_URL, mode: env.BILLING_MODE }).isConfigured()
   };
   return { status: Object.values(checks).every(Boolean) ? 'configuration_present_verification_required' : 'blocked', checks,
     stripe_mode: env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test' : env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live_not_verified' : 'missing_or_other',

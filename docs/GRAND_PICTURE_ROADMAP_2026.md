@@ -1,5 +1,7 @@
 # SignalTube Grand Picture
 
+> Aktiver Stand 18.09.2026: Free-Abnahme über PR #10 auf `main` gesichert. `feature/pro-checkout-access` ergänzt Testcheckout, bezahlte Monatscredits und ein kompaktes Profilmenü. 245 automatisierte Tests grün; echter Stripe-Testmodus und neue Chrome-Abnahme noch offen. [Aktuelle Roadmap](../ROADMAP.md) und [Pro-Handoff](PRO_CHECKOUT_ACCESS.md) sind maßgeblich. Keine Freigabe für Live-Zahlungen oder Deployment. Ältere Ziele unten sind historische Planung.
+
 ## Produktvision, Roadmap und Kommerzialisierung bis Dezember 2026
 
 **Status:** Produktvision mit MVP-Abgrenzung, aktualisiert am 7. September 2026<br>

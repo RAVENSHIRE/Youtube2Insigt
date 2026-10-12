@@ -9,6 +9,7 @@ function createReportAnalyzer({ youtubeMetadataService, sourceService, analyzeTr
       creator: authoritative.channelTitle, signal, onStage }), onStage);
     return {
       analysis_version: analysisVersion, evidence_version: 1, report_language: source.language,
+      ...(analysis.evidence_extraction_version ? { evidence_extraction_version: analysis.evidence_extraction_version } : {}),
       analysis_models: [model], source, summary: analysis.summary, companies: analysis.companies,
       video: { id: input.videoId, title: authoritative.title, creator: authoritative.channelTitle,
         url: `https://www.youtube.com/watch?v=${input.videoId}`, published_at: authoritative.publishedAt,

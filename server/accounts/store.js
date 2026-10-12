@@ -103,12 +103,14 @@ class AccountStore {
   subscription(userId) { return this.db.prepare('SELECT * FROM subscriptions WHERE user_id=?').get(userId) || null; }
   isPro(userId) {
     const sub = this.subscription(userId);
-    return Boolean(sub && sub.status === 'active' && sub.period_end > this.now());
+    return Boolean(sub && sub.status === 'active' && sub.period_end > this.now() &&
+      this.db.prepare("SELECT 1 FROM credit_grants WHERE user_id=? AND kind='pro' AND id='pro:' || ? || ':' || starts_at AND starts_at<=? AND expires_at=?").get(userId, sub.subscription_id, this.now(), sub.period_end));
   }
   grants(userId) {
     return this.db.prepare(`SELECT g.*, g.amount-(SELECT count(*) FROM jobs j WHERE j.grant_id=g.id AND j.state IN ('reserved','complete')) AS available
       FROM credit_grants g WHERE g.user_id=? AND g.starts_at<=? AND g.expires_at>? ORDER BY g.expires_at`).all(userId, this.now(), this.now())
-      .filter(grant => grant.kind === 'free' || this.isPro(userId));
+      .filter(grant => grant.kind === 'free' || (this.isPro(userId) &&
+        grant.id === `pro:${this.subscription(userId).subscription_id}:${grant.starts_at}` && grant.expires_at === this.subscription(userId).period_end));
   }
   account(userId) {
     this.recoverExpired();
@@ -126,7 +128,9 @@ class AccountStore {
     return { ...parse(row), personal_sequence: row.sequence, saved_at: new Date(row.added_at).toISOString(), revision_id: row.report_id };
   }
   library(userId) {
-    return this.db.prepare('SELECT r.body,l.sequence,l.added_at,l.report_id FROM library l JOIN reports r ON r.id=l.report_id WHERE l.user_id=? ORDER BY l.sequence').all(userId)
+    const { hasVisibilityTable } = require('./localLibraryVisibility');
+    const visible = hasVisibilityTable(this.db) ? ' AND NOT EXISTS (SELECT 1 FROM local_hidden_library h WHERE h.user_id=l.user_id AND h.video_id=l.video_id)' : '';
+    return this.db.prepare(`SELECT r.body,l.sequence,l.added_at,l.report_id FROM library l JOIN reports r ON r.id=l.report_id WHERE l.user_id=?${visible} ORDER BY l.sequence`).all(userId)
       .map(row => ({ ...parse(row), personal_sequence: row.sequence, saved_at: new Date(row.added_at).toISOString(), revision_id: row.report_id }));
   }
   cachedReport(videoId, version) {

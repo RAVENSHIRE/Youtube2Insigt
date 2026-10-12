@@ -79,6 +79,16 @@ function createExtensions(deps) {
       dashboard.videos.forEach(video => { delete video.performance; });
       res.json({ ...dashboard, example: true, review: examples.review });
     }));
+    app.get('/examples/videos/:videoId/report.csv', (req, res, next) => {
+      const report = examples.reports.find(r => r.video.id === req.params.videoId);
+      if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in den Beispielen.', 404));
+      try { require('../exports/reportCsv').sendReportCsv(res, projectResearchForRead(report)); } catch (error) { next(error); }
+    });
+    app.get('/examples/videos/:videoId/watchlist.csv', (req, res, next) => {
+      const report = examples.reports.find(r => r.video.id === req.params.videoId);
+      if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in den Beispielen.', 404));
+      try { require('../exports/watchlistCsv').sendWatchlist(res, report); } catch (error) { next(error); }
+    });
     app.get('/examples/videos/:videoId', (req, res, next) => {
       const report = examples.reports.find(r => r.video.id === req.params.videoId);
       if (!report) return next(new AppError('VIDEO_NOT_FOUND', 'Video nicht in den Beispielen.', 404));

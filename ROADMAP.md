@@ -1,3 +1,60 @@
+## Aktuell: Pro-Testcheckout — 18. September 2026
+
+Maßgeblich ist [Pro-Einrichtung und Abnahme](docs/PRO_CHECKOUT_ACCESS.md). Dieser Abschnitt ersetzt den früheren Coming-soon-Status; historische Phasen unten bleiben dokumentiert.
+
+- [x] Free-Stand einschließlich Panel-/Gold-TradingView vom Nutzer abgenommen und über PR #10 auf `main` (`48b0997`) gesichert.
+- [x] Separater Branch `feature/pro-checkout-access`: expliziter Stripe-Testcheckout, geprüftes monatliches Preisangebot und Customer Portal.
+- [x] Pro nur aus signierter, bezahlter Periode; monatliches Kontingent, doppelte/verzögerte Events, fehlgeschlagene Zahlung und Kündigung abgesichert.
+- [x] Kompaktes Profilmenü, Rückkehr zum Creator Overview, bestehende Bibliotheken/CSV/TradingView erhalten.
+- [x] 245 automatisierte Tests bestanden; Stripe-Vertragsprüfungen sind simuliert.
+- [ ] Echten Stripe-Testcheckout plus Webhook, Portal, Verlängerung und fehlgeschlagene Zahlung lokal abnehmen.
+- [ ] Browser-/Extension-Abnahme der neuen Oberfläche; Cloud-Browserzugriff auf localhost hier blockiert.
+- [ ] Nach expliziter Freigabe dieses Feature nach `main` mergen.
+- [ ] Danach getrennt Produktionskonfiguration, HTTPS-Deployment und Live-Zahlungsfreigabe. Kommerzielle Marktdaten weiterhin gesperrt.
+
+## Nächste Abnahme: zweites Video im Free-Testkonto
+
+- [x] Lokaler Test-Credit-Helfer mit verifiziertem SQLite-Backup und Produktionssperre.
+- [x] Testprüfer kontrolliert frisches Video, Erhalt alter Reports, einmaligen Verbrauch und kostenlosen Wiederaufruf.
+- [x] Getrennte Originalsegmente als separate Belege (Extraction v3); sichere Diagnose unbekannter IDs.
+- [x] Optionaler lokaler Reset blendet alte Reports reversibel aus; Originale/Nummerierung bleiben erhalten.
+- [x] Neuer Video-Lauf vom Nutzer bestätigt: vollständiger Report, `analysis_completed`, Credit 0 (18.09.2026).
+- [x] Panel-Ticker auf direkte TradingView-Links umgestellt; 224 automatisierte Tests grün.
+- [x] Gold als COMMODITY erhält beim Lesen einen gekennzeichneten Gold/USD-Referenzchart, auch ohne Ticker; 229 Tests grün.
+- [x] Gold-Link lokal vom Nutzer bestätigt; Free-Stand auf main über PR #10 gesichert.
+- [x] Pro-Testcheckout separat implementiert; echte Stripe-Abnahme siehe aktueller Abschnitt oben.
+
+Anleitung: [Free-Abnahme](docs/FREE_SECOND_VIDEO_ACCEPTANCE.md). Der Live-Erfolg ist Voraussetzung für den Merge. Kein Deployment und kein Live-Payment behauptet.
+
+## Account-Dashboard — 17. September 2026
+
+- [x] `/account/` mit Creator Overview, Kanalkennzahlen, Fortschritt, interaktivem Sektor → Sub-Sektor → Unternehmen Report-Mix.
+- [x] Research Library mit gemeinsamer Such-/Sortierlogik der Extension und stabiler Reportnummer.
+- [x] Titel/Mini-Chart öffnen Report; Ticker und vollständiger CSV-Report direkt auf der Videokarte.
+- [x] Watchlist-Werbeabschnitt aus Konto-/Landingseite entfernt. Pro bleibt Coming soon.
+- [ ] Visuelle lokale Chrome-Abnahme; Performance-Sortierung bleibt mangels freigegebener Marktdaten deaktiviert.
+
+Details: [Account-Dashboard-Handoff](docs/ACCOUNT_DASHBOARD_HANDOFF.md). Dieser Abschnitt ersetzt abweichende UI-Beschreibungen aus dem Phase-1-Handoff; Analyse, Login und Credits bleiben unverändert.
+
+# SignalTube — aktive Phase 1, 16. September 2026
+
+Maßgeblich: [PHASE_1_HANDOFF.md](PHASE_1_HANDOFF.md) und [Kostenmodell](docs/PHASE_1_COST_MODEL.md).
+
+- [x] Funktionierenden Stand nach Quellen-, Modell- und Extension-Origin-Fixes erhalten.
+- [x] Konto und Webbericht in der dunklen SignalTube-Gestaltung der Extension.
+- [x] Öffentliche Landingpage mit ehrlichem Beta-Umfang und funktionierenden Konto-Links.
+- [x] Pro als inaktive Coming-soon-Vorschau; kein neuer Zahlungsablauf.
+- [x] Veröffentlichungsdatum hervorheben, nicht durch Analysezeit ersetzen.
+- [x] Symbol-CSV pro persönlichem/Beispielreport; US-Zuordnung, Nutzertrennung, keine erfundenen Positionen.
+- [x] Kostenmodell mit geprüften Providerpreisen und getrennt gekennzeichneten Annahmen.
+- [ ] Visuelle lokale Chrome-Abnahme dieser Änderungen und echter Yahoo-Import.
+- [ ] Echte p50/p95-Analyse- und Speicherkosten erfassen.
+- [ ] Beispielbelege/Verbreitungsrechte und Betreiber-/Datenschutzangaben final prüfen.
+
+**Kein Stripe, Deployment oder neues Feature in dieser Phase.** Bestehende Stripe-Module bleiben unverändert und sind keine Freigabe für Zahlungen. Historische Release-Checklisten unten sind nachrangig gegenüber diesem Phase-1-Umfang. Nächste Phase erst nach Abnahme.
+
+---
+
 # MVP release roadmap — 7 September 2026
 
 Target: retail investors who consume finance videos, not a large trading terminal.

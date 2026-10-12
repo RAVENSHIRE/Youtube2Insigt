@@ -19,7 +19,7 @@ function fixture(t, options = {}) {
 const report = (id = 'TestVideo01') => ({ video: { id, title: 'Synthetic test', creator: 'Fixture Creator' }, analysis_version: 8, companies: [] });
 function grantPro(store, user) {
   store.applyBilling('evt_initial', user.id, { id: 'sub_1', status: 'active', periodEnd: time + 86400000, cancelAtPeriodEnd: false },
-    { id: 'pro:sub_1:1', start: time - 1000, end: time + 86400000 });
+    { id: `pro:sub_1:${time - 1000}`, start: time - 1000, end: time + 86400000 });
 }
 const sign = (event, secret, at = time) => {
   const raw = Buffer.from(JSON.stringify(event));
@@ -127,24 +127,25 @@ test('Stripe raw-body verification rejects modified bodies, stale timestamps and
   assert.throws(() => verifyWebhook(raw, signature, 'wrong', time));
 });
 test('Stripe contract: paid subscription, duplicate/out-of-order delivery, renewal, failed payment and cancellation', async t => {
-  const { store, user } = fixture(t);
+  let clock = time;
+  const { store, user } = fixture(t, { now: () => clock });
   store.customer(user.id, 'cus_test');
   const secret = 'whsec_fixture';
   let start = Math.floor(time / 1000) - 86400, end = start + 30 * 86400;
   let status = 'active', paid = true, cancel = false, requests = 0;
   const canonical = () => ({ id: 'sub_test', customer: 'cus_test', livemode: false, status,
     cancel_at_period_end: cancel, items: { data: [{ quantity: 1, price: { id: 'price_pro', recurring: { interval: 'month', interval_count: 1 } }, current_period_start: start, current_period_end: end }] },
-    latest_invoice: { id: 'in_latest', status: paid ? 'paid' : 'open', paid,
+    latest_invoice: { id: 'in_latest', customer:'cus_test', subscription:'sub_test', livemode:false, status: paid ? 'paid' : 'open', paid,
       lines: { data: [{ pricing: { price_details: { price: 'price_pro' } }, period: { start, end } }] } } });
   const client = { secret: 'sk_test_fixture', priceId: 'price_pro', getSubscription: async () => { requests++; return canonical(); } };
   const billing = new BillingService({ store, client, webhookSecret: secret });
-  const emit = (id, type, extra = {}) => billing.webhook(...sign({ id, type, data: { object: { id: 'in_payload', customer: 'cus_test', parent: { subscription_details: { subscription: 'sub_test' } }, ...extra } } }, secret));
+  const emit = (id, type, extra = {}) => billing.webhook(...sign({ id, type, livemode:false, data: { object: { id: 'in_payload', customer: 'cus_test', parent: { subscription_details: { subscription: 'sub_test' } }, ...extra } } }, secret, clock));
   await emit('evt_paid', 'invoice.paid');
   assert.equal(store.account(user.id).analyses_available, 21);
   await emit('evt_paid', 'invoice.paid'); assert.equal(requests, 1);
   await emit('evt_old_failed', 'invoice.payment_failed'); // Canonical state is paid; old event cannot revoke it.
   assert.equal(store.isPro(user.id), true); assert.equal(store.account(user.id).analyses_available, 21);
-  start += 30 * 86400; end += 30 * 86400;
+  start += 30 * 86400; end += 30 * 86400; clock = (start + 86400) * 1000;
   await emit('evt_renewal', 'invoice.paid'); await emit('evt_renewal_duplicate_invoice', 'invoice.paid');
   assert.equal(store.db.prepare("SELECT count(*) AS n FROM credit_grants WHERE kind='pro'").get().n, 2);
   status = 'past_due'; paid = false; await emit('evt_failed', 'invoice.payment_failed');

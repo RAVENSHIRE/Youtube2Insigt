@@ -32,6 +32,9 @@ async function verifyFreeAnalysis({ base = 'http://localhost:3000', videoUrl, em
     const login = await request('/auth/login', { email, password }); token = login.token;
     const before = await request('/me');
     if (before.plan !== 'free' || before.analyses_available !== 1) throw Error('VERIFIED_FREE_ACCOUNT_WITH_ONE_CREDIT_REQUIRED');
+    const libraryBefore = await request('/dashboard');
+    const priorIds = libraryBefore.videos.map(video => video.id);
+    if (priorIds.includes(videoId)) return { status: 'not_verified_cached_report', videoId, credits_before: before.analyses_available };
     const startedAt = Date.now();
     const started = await request('/analyze', { videoId, confirmCredit: true });
     if (!started.jobId || started.cached) return { status: 'not_verified_cached_report', videoId, credits_before: before.analyses_available };
@@ -41,7 +44,10 @@ async function verifyFreeAnalysis({ base = 'http://localhost:3000', videoUrl, em
       await delay(1500); job = await request(`/analysis-jobs/${encodeURIComponent(started.jobId)}`);
     }
     const after = await request('/me');
-    const result = { proof_version: 1, verified_at: new Date().toISOString(), videoId, jobId: started.jobId,
+    const libraryAfter = await request('/dashboard');
+    const afterIds = new Set(libraryAfter.videos.map(video => video.id));
+    const result = { proof_version: 2, library_before: priorIds.length, library_after: afterIds.size,
+      previous_reports_preserved: priorIds.every(id => afterIds.has(id)), new_video_in_library: afterIds.has(videoId), verified_at: new Date().toISOString(), videoId, jobId: started.jobId,
       status: job.state === 'complete' ? 'success' : job.state === 'failed' ? 'analysis_failed' : 'still_running',
       code: job.code || null, credits_before: before.analyses_available, credits_after: after.analyses_available,
       credit_released: job.state === 'failed' && after.analyses_available === before.analyses_available };
@@ -54,7 +60,7 @@ async function verifyFreeAnalysis({ base = 'http://localhost:3000', videoUrl, em
       result.credit_consumed_once = after.analyses_available === before.analyses_available - 1;
       const replay = await request('/analyze', { videoId, confirmCredit: true });
       result.reread_free = replay.cached === true && replay.credits_consumed === 0 && (await request('/me')).analyses_available === after.analyses_available;
-      if (!result.report_saved || !result.source_verified || !result.credit_consumed_once || !result.reread_free) result.status = 'verification_failed';
+      if (!result.report_saved || !result.source_verified || !result.credit_consumed_once || !result.reread_free || !result.previous_reports_preserved || !result.new_video_in_library || result.library_after !== result.library_before + 1) result.status = 'verification_failed';
       else if (!result.fresh_source) result.status = 'not_verified_cached_source';
     }
     return result;
