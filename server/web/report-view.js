@@ -23,18 +23,45 @@
     const title = resolved ? company.tradingview_label || `${company.company || label} auf TradingView` : 'Symbol bei TradingView öffnen; Börsenplatz nicht bestätigt. Bitte Zuordnung prüfen.';
     return href ? `<a class="ticker-chip sentiment-${sentiment}" href="${escape(href)}" target="_blank" rel="noopener noreferrer" title="${escape(title)}">${escape(label)} ↗</a>` : `<span class="ticker-chip sentiment-${sentiment}" title="Instrument-Zuordnung offen">${escape(label)}</span>`;
   }
-  function evidenceMarkup(evidence, videoId) {
+  // Display a bounded verbatim source window when a selected quote ends mid-thought.
+  // This never changes stored evidence, its timestamp, or its validation status.
+  function evidenceContext(item, source) {
+    if (item?.validation !== 'source_match' || !Array.isArray(source?.segments)) return null;
+    const ids = item.segment_ids;
+    if (!Array.isArray(ids) || !ids.length) return null;
+    const segments = source.segments;
+    const first = segments.findIndex(segment => segment.id === ids[0]);
+    const last = segments.findIndex(segment => segment.id === ids[ids.length - 1]);
+    if (first < 0 || last < first || last - first > 5) return null;
+    const quote = String(item.original_text || '').replace(/\s+/gu, ' ').trim();
+    if (!quote || /[.!?]["']?$/u.test(quote)) return null;
+    // Only append adjacent source speech; never generate or silently change a quotation.
+    const selected = segments.slice(first, last + 1).map(segment => segment.text).join(' ').replace(/\s+/gu, ' ').trim();
+    if (selected !== quote) return null;
+    const suffix = [];
+    for (let i = last + 1; i < Math.min(segments.length, last + 5); i++) {
+      const text = String(segments[i].text || '').trim();
+      if (!text) break;
+      suffix.push(text);
+      if (/[.!?]["']?$/u.test(text)) break;
+    }
+    if (!suffix.length) return null;
+    const expanded = `${quote} ${suffix.join(' ')}`;
+    return expanded.length <= 700 ? expanded : null;
+  }
+  function evidenceMarkup(evidence, videoId, source) {
     if (!evidence.length) return missing('Keine prüfbaren Belege gespeichert.');
     return evidence.map(item => {
       const text = typeof item === 'string' ? item : item?.original_text || '';
       const verified = item?.validation === 'source_match' && typeof item.start_seconds === 'number' &&
         Number.isFinite(item.start_seconds) && item.start_seconds >= 0 && /^[\w-]{11}$/u.test(videoId);
       const marker = verified ? `<a href="https://www.youtube.com/watch?v=${videoId}&amp;t=${Math.floor(item.start_seconds)}s" target="_blank" rel="noopener noreferrer">${clock(item.start_seconds)} ↗</a>` : '<span class="fine">Zeitmarke nicht verifiziert</span>';
+      const context = evidenceContext(item, source);
       const translation = item?.translation?.text ? `<p class="fine">KI-Übersetzung (${escape(item.translation.language)}): ${escape(item.translation.text)}</p>` : '';
-      return `<blockquote>${marker}<p>${escape(text)}</p>${translation}</blockquote>`;
+      return `<blockquote>${marker}<p>${escape(context || text)}</p>${context ? '<p class="fine">Erweiterter Originalkontext aus benachbarten Transkriptsegmenten.</p>' : ''}${translation}</blockquote>`;
     }).join('');
   }
-  function companyMarkup(company, videoId, index) {
+  function companyMarkup(company, videoId, index, source) {
     const tv = tradingView(company.tradingview_url);
     const ticker = tickerLink(company);
     const sentiment = {bull:'Bullish',neutral:'Neutral',bear:'Bearish'}[company.sentiment];
@@ -54,7 +81,7 @@
       ${section('Kursziele', targets ? `<ul>${targets}</ul>` : missing('Keine ausdrücklichen Kursziele gespeichert.'))}
       ${section('Marken &amp; Levels', levels ? `<ul>${levels}</ul>` : missing('Keine Levels gespeichert.'))}
       ${section('Risiken', risks ? `<ul>${risks}</ul>` : missing('Keine Risiken aus den Belegen extrahiert. Das bedeutet nicht, dass keine Risiken bestehen.'))}
-      ${section('Belege aus dem Video', evidenceMarkup(array(company.evidence), videoId))}</div></details>`;
+      ${section('Belege aus dem Video', evidenceMarkup(array(company.evidence), videoId, source))}</div></details>`;
   }
   function publicationDate(value) {
     if (!value || !Number.isFinite(Date.parse(value))) return 'nicht bekannt';
@@ -66,7 +93,7 @@
     const companies = array(report.companies);
     const metadata = [report.video.creator, report.video.published_at ? `Veröffentlicht: ${report.video.published_at}` : '', report.report_language ? `Quellsprache: ${report.report_language}` : ''].filter(Boolean).map(escape).join(' · ');
     return `<h3>Vollständiger Analysebericht</h3><p class="publication">Veröffentlicht: ${escape(publicationDate(report.video.published_at))}</p><p class="fine">${metadata}</p><a class="button secondary" href="${report.example ? '/examples' : ''}/videos/${id}/report.csv" download>CSV-Report herunterladen ↓</a>` +
-      (companies.length ? companies.map((company,index)=>companyMarkup(company,id,index)).join('') : missing('Keine Unternehmen im gespeicherten Bericht.'));
+      (companies.length ? companies.map((company,index)=>companyMarkup(company,id,index,report.source)).join('') : missing('Keine Unternehmen im gespeicherten Bericht.'));
   }
   const view = {render, publicationDate, tickerLink};
   if (typeof module === 'object' && module.exports) module.exports = view;

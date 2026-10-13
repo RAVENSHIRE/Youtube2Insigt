@@ -7,6 +7,13 @@ const billingUI = globalThis.ProBilling?.create({ request, byId, message, onActi
 let resetToken = null;
 let libraryEpoch = 0;
 let creators = [], selectedCreator = null, researchVideos = [], mixPath = [], companyVideos = null;
+const pendingVideoKey = 'signaltube:completed-video';
+function rememberCompletedVideo(videoId) { sessionStorage.setItem(pendingVideoKey, videoId); }
+function takeCompletedVideo() {
+  const id = sessionStorage.getItem(pendingVideoKey);
+  sessionStorage.removeItem(pendingVideoKey);
+  return /^[A-Za-z0-9_-]{11}$/.test(id || '') ? id : null;
+}
 function clearResearch() {
   creators = []; selectedCreator = null; researchVideos = []; mixPath = []; companyVideos = null;
   byId('creatorGrid').innerHTML = ''; byId('reportMix').innerHTML = ''; byId('channelOverview').innerHTML = '';
@@ -102,7 +109,7 @@ function setReportButtons(button, open) {
     if(control.dataset.reportLabel) control.textContent = open ? 'Report schließen' : 'Vollständigen Report öffnen';
   }
 }
-byId('personalLibrary').addEventListener('click', async event => {
+async function openSavedReport(event) {
   const button = event.target.closest('[data-report-video]');
   if (!button || button.disabled) return;
   event.preventDefault();
@@ -124,7 +131,22 @@ byId('personalLibrary').addEventListener('click', async event => {
   } catch (error) {
     if (epoch === libraryEpoch) { if(button.dataset.reportLabel)button.textContent = 'Vollständigen Report öffnen'; message(error.message, true); }
   } finally { button.disabled = false; }
-});
+}
+byId('personalLibrary').addEventListener('click', openSavedReport);
+async function restoreCompletedVideo(videoId) {
+  for (const creator of creators) {
+    const data = await request(`/creators/${encodeURIComponent(creator.creatorId)}/dashboard`);
+    if (!(data.videos || []).some(video => video.id === videoId)) continue;
+    await selectCreator(creator.creatorId);
+    const buttons = byId('personalLibrary').querySelectorAll('[data-report-video]');
+    const button = [...buttons].find(item => item.dataset.reportVideo === videoId);
+    if (!button) return;
+    await openSavedReport({ target: { closest: () => button }, preventDefault() {} });
+    button.closest('.library-entry')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  message('Analyse erfolgreich! Report gespeichert.');
+}
 byId('authForm').addEventListener('submit', run(async () => { await request('/auth/login', { email: byId('email').value, password: byId('password').value }); byId('password').value = ''; message('Angemeldet.'); await refresh(); await billingUI?.handleReturn(); }));
 function registrationMode(enabled) {
   byId('authForm').hidden = enabled; byId('registerForm').hidden = !enabled;
@@ -166,12 +188,18 @@ byId('analysisForm').addEventListener('submit', run(async () => {
     let job = await request('/analyze', { videoId, confirmCredit: true });
     const deadline = Date.now() + 250000;
     while (job.state === 'reserved' && Date.now() < deadline) {
-      message('Analyse läuft. Eine Analyse reserviert; bei Fehler erfolgt die Freigabe.');
+      message('Analyse läuft.');
       await new Promise(resolve => setTimeout(resolve, 1500)); job = await request(`/analysis-jobs/${encodeURIComponent(job.jobId)}`);
+    }
+    if (job.state === 'complete') {
+      rememberCompletedVideo(videoId);
+      message('Analyse erfolgreich!');
+      location.reload();
+      return;
     }
     const failure = job.state === 'failed' ? `${job.error} Code: ${job.code || 'ANALYSIS_FAILED'} · Auftrag: ${job.jobId}` : null;
     await refresh();
-    message(job.state === 'complete' ? 'Report gespeichert.' : failure || 'Auftrag läuft noch. Später aktualisieren.', job.state === 'failed');
+    message(failure || 'Auftrag läuft noch. Später aktualisieren.', job.state === 'failed');
   } finally { byId('analyze').disabled = false; }
 }));
 (async () => {
@@ -181,4 +209,9 @@ byId('analysisForm').addEventListener('submit', run(async () => {
   if (verification) { await request('/auth/verify', { token: verification }); message('E-Mail bestätigt. Deine kostenlose Analyse ist verfügbar.'); }
   if (resetToken) byId('resetPanel').hidden = false;
   await refresh(); await billingUI?.handleReturn();
+  const completedVideo = takeCompletedVideo();
+  if (completedVideo) {
+    message('Analyse erfolgreich!');
+    await restoreCompletedVideo(completedVideo);
+  }
 })().catch(error => message(error.message, true));

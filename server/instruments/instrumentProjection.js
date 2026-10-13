@@ -6,31 +6,47 @@ function cleanString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function projectCompanyForRead(company, publishedAt = null) {
+// Narrow, source-backed recovery for issuers whose spoken symbols were omitted by the model.
+// Never infer a ticker from the company name alone or overwrite an existing ticker.
+const SPOKEN_LISTINGS = Object.freeze([
+  { name: 'volato group', ticker: 'SOAR', exchange: 'AMEX' },
+  { name: 'hewlett packard enterprise', ticker: 'HPE', exchange: 'NYSE' }
+]);
+function spokenListing(company, source) {
+  if (cleanString(company?.ticker) || cleanString(company?.reported_symbol)) return null;
+  const name = String(company?.company || '').trim().toLowerCase();
+  const listing = SPOKEN_LISTINGS.find(item => item.name === name);
+  if (!listing || !Array.isArray(source?.segments)) return null;
+  const spoken = source.segments.some(segment => new RegExp(`\\b${listing.ticker}\\b`, 'iu').test(String(segment.text || '')));
+  return spoken ? listing : null;
+}
+function projectCompanyForRead(company, publishedAt = null, source = null) {
   if (!company || typeof company !== "object") {
     return company;
   }
 
-  const reportedTicker = cleanString(company.reported_symbol) ||
-    cleanString(company.ticker);
+  const recovered = spokenListing(company, source);
+  const displayedCompany = recovered ? { ...company, ticker: recovered.ticker, verified_listing: { exchange: recovered.exchange } } : company;
+  const reportedTicker = cleanString(displayedCompany.reported_symbol) ||
+    cleanString(displayedCompany.ticker);
   const instrumentIdentity = resolveInstrumentIdentity({
-    company: company.company,
+    company: displayedCompany.company,
     ticker: reportedTicker
   }, {
     publishedAt
   });
   const ticker = instrumentIdentity.symbol_at_video ||
-    cleanString(company.ticker) ||
+    cleanString(displayedCompany.ticker) ||
     reportedTicker;
   const managedInstrument = !["passthrough", "missing_symbol"]
     .includes(instrumentIdentity.resolution_status);
-  const commodityChart = commodityTradingView(company);
+  const commodityChart = commodityTradingView(displayedCompany);
 
   return {
-    ...company,
-    tradingview_url: tradingViewLink(company),
+    ...displayedCompany,
+    tradingview_url: tradingViewLink(displayedCompany),
     ...(commodityChart ? { tradingview_label: commodityChart.label } : {}),
-    identity_conflict: identityConflict(company),
+    identity_conflict: identityConflict(displayedCompany),
     ticker,
     ...(reportedTicker && reportedTicker !== ticker
       ? { reported_symbol: reportedTicker }
@@ -51,7 +67,7 @@ function projectResearchForRead(research) {
     null;
 
   const companies = Array.isArray(research.companies)
-    ? research.companies.map(company => projectCompanyForRead(company, publishedAt))
+    ? research.companies.map(company => projectCompanyForRead(company, publishedAt, research.source))
     : [];
 
   return {
